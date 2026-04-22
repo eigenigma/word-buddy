@@ -1,0 +1,41 @@
+{
+	"name": "word-buddy",
+	"description": "Firefox vocabulary helper for English reading: inline glosses, click-to-lookup, and a personal wordbook.",
+	"private": true,
+	"version": "0.1.0",
+	"type": "module",
+	"scripts": {
+		"build": "wxt build",
+		"build:dict": "bun run ./scripts/buildDict.ts",
+		"build:firefox": "wxt build -b firefox --mv3",
+		"zip": "wxt zip -b firefox --mv3",
+		"submit:firefox": "wxt submit --firefox-zip .output/*-firefox.zip --firefox-sources-zip .output/*-sources.zip --firefox-channel listed",
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check .",
+		"format": "biome format --write .",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage",
+		"postinstall": "wxt prepare"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.11",
+		"@iconify-json/mdi": "^1.2.3",
+		"@preact/preset-vite": "^2.10.5",
+		"@vitest/coverage-v8": "^4.1.4",
+		"@wxt-dev/unocss": "^1.0.1",
+		"csv-parse": "^6.2.1",
+		"fake-indexeddb": "^6.2.4",
+		"jsdom": "^29.0.2",
+		"typescript": "^5.9.3",
+		"unocss": "^66.6.8",
+		"vitest": "^4.1.4",
+		"wxt": "^0.20.20"
+	},
+	"dependencies": {
+		"@preact/signals": "^2.9.0",
+		"dexie": "^4.4.2",
+		"preact": "^10.29.1",
+		"zod": "^4.3.6"
+	}
+}

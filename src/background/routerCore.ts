@@ -1,0 +1,85 @@
+import type { ZodType } from "zod";
+
+import type { BackgroundServices } from "@/background/composition";
+import type {
+	DictionaryExpandLemmasResponse,
+	DictionaryLookupResponse,
+	LemmaNormalizeResponse,
+	LlmTranslateParagraphResponse,
+	LlmTranslationCacheClearResponse,
+	SettingsGetResponse,
+	SettingsSetResponse,
+	SiteControlIsBlockedResponse,
+	SiteControlListResponse,
+	SiteControlSetResponse,
+	StaticDictionarySeedStatusResponse,
+	WordbookAddResponse,
+	WordbookExistsResponse,
+	WordbookListResponse,
+	WordbookRemoveResponse,
+	WordbookUpdateResponse,
+} from "@/shared/runtime/messages/index";
+import { reportGlobalError, toErrorMessage } from "@/shared/utils/errors";
+
+export type BackgroundResponsePayload =
+	| DictionaryExpandLemmasResponse
+	| DictionaryLookupResponse
+	| LemmaNormalizeResponse
+	| LlmTranslateParagraphResponse
+	| LlmTranslationCacheClearResponse
+	| SettingsGetResponse
+	| SettingsSetResponse
+	| SiteControlIsBlockedResponse
+	| SiteControlListResponse
+	| SiteControlSetResponse
+	| StaticDictionarySeedStatusResponse
+	| WordbookAddResponse
+	| WordbookExistsResponse
+	| WordbookListResponse
+	| WordbookRemoveResponse
+	| WordbookUpdateResponse;
+
+export type BackgroundMessageResponse =
+	| Promise<BackgroundResponsePayload>
+	| false;
+
+export interface MessageRouter {
+	readonly handle: (message: unknown) => BackgroundMessageResponse;
+}
+
+export interface HandlerDescriptor<Req, Res extends BackgroundResponsePayload> {
+	readonly requestSchema: ZodType<Req>;
+	readonly handle: (services: BackgroundServices, request: Req) => Promise<Res>;
+}
+
+export function reportBackgroundError(context: string, error: unknown): void {
+	reportGlobalError(context, error);
+}
+
+export function broadcastInvalidation(services: BackgroundServices): void {
+	services.annotatorBroadcaster.invalidate().catch((error: unknown): void => {
+		reportBackgroundError("word-buddy: annotator invalidation failed", error);
+	});
+}
+
+export function broadcastSiteControlChanged(
+	services: BackgroundServices,
+): void {
+	services.annotatorBroadcaster
+		.siteControlChanged()
+		.catch((error: unknown): void => {
+			reportBackgroundError("word-buddy: site control broadcast failed", error);
+		});
+}
+
+export async function withErrorEnvelope<TSuccess, TResponse>(
+	handler: () => Promise<TSuccess>,
+	onSuccess: (result: TSuccess) => TResponse,
+	onError: (errorMessage: string) => TResponse,
+): Promise<TResponse> {
+	try {
+		return onSuccess(await handler());
+	} catch (error: unknown) {
+		return onError(toErrorMessage(error));
+	}
+}

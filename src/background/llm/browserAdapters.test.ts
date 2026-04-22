@@ -1,0 +1,282 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { TranslationCacheService } from "@/background/translations/service";
+import type { LlmSettings } from "@/shared/settings/types";
+
+import { createLlmBrowserAdapter } from "./browserAdapters";
+
+type GenericMock = ReturnType<typeof vi.fn>;
+type TranslationCacheClearMock = ReturnType<
+	typeof vi.fn<() => Promise<number>>
+>;
+type TranslationCacheGetMock = ReturnType<
+	typeof vi.fn<(hash: string) => Promise<null>>
+>;
+type TranslationCacheSetMock = ReturnType<
+	typeof vi.fn<(entry: unknown) => Promise<void>>
+>;
+
+interface HoistedMocks {
+	readonly OPEN_AI_CLIENT: { readonly translateParagraph: GenericMock };
+	readonly PARAGRAPH_TRANSLATOR: { readonly translateParagraph: GenericMock };
+	readonly RATE_LIMITER: { readonly acquire: GenericMock };
+	readonly RETRY_POLICY: { readonly attemptFetch: GenericMock };
+	readonly SETTINGS_SERVICE: {
+		readonly get: GenericMock;
+		readonly set: GenericMock;
+	};
+	readonly SETTINGS_STORAGE: { readonly id: string };
+	readonly SITE_CONTROL_SERVICE: { readonly id: string };
+	readonly SITE_CONTROL_STORAGE: { readonly id: string };
+	readonly TRANSLATION_CACHE_SERVICE: TranslationCacheService;
+	readonly computeTranslationHashMock: GenericMock;
+	readonly createBrowserStorageSettingsStorageMock: GenericMock;
+	readonly createBrowserStorageSiteControlMock: GenericMock;
+	readonly createExponentialRetryPolicyMock: GenericMock;
+	readonly createOpenAiCompatibleClientMock: GenericMock;
+	readonly createParagraphTranslatorMock: GenericMock;
+	readonly createSettingsServiceMock: GenericMock;
+	readonly createSiteControlServiceMock: GenericMock;
+	readonly createTokenBucketRateLimiterMock: GenericMock;
+	readonly sleepMock: GenericMock;
+	readonly translationCacheClearMock: TranslationCacheClearMock;
+	readonly translationCacheGetMock: TranslationCacheGetMock;
+	readonly translationCacheSetMock: TranslationCacheSetMock;
+}
+
+function createHoistedMocks(): HoistedMocks {
+	const translationCacheClearMock = vi.fn<() => Promise<number>>();
+	const translationCacheGetMock = vi.fn<(hash: string) => Promise<null>>();
+	const translationCacheSetMock = vi.fn<(entry: unknown) => Promise<void>>();
+
+	return {
+		OPEN_AI_CLIENT: { translateParagraph: vi.fn() },
+		PARAGRAPH_TRANSLATOR: { translateParagraph: vi.fn() },
+		RATE_LIMITER: { acquire: vi.fn() },
+		RETRY_POLICY: { attemptFetch: vi.fn() },
+		SETTINGS_SERVICE: { get: vi.fn(), set: vi.fn() },
+		SETTINGS_STORAGE: { id: "settings-storage" },
+		SITE_CONTROL_SERVICE: { id: "site-control" },
+		SITE_CONTROL_STORAGE: { id: "site-control-storage" },
+		TRANSLATION_CACHE_SERVICE: {
+			clear: translationCacheClearMock,
+			get: translationCacheGetMock,
+			set: translationCacheSetMock,
+		},
+		computeTranslationHashMock: vi.fn(() => "hash"),
+		createBrowserStorageSettingsStorageMock: vi.fn(),
+		createBrowserStorageSiteControlMock: vi.fn(),
+		createExponentialRetryPolicyMock: vi.fn(),
+		createOpenAiCompatibleClientMock: vi.fn(),
+		createParagraphTranslatorMock: vi.fn(),
+		createSettingsServiceMock: vi.fn(),
+		createSiteControlServiceMock: vi.fn(),
+		createTokenBucketRateLimiterMock: vi.fn(),
+		sleepMock: vi.fn(),
+		translationCacheClearMock: translationCacheClearMock,
+		translationCacheGetMock: translationCacheGetMock,
+		translationCacheSetMock: translationCacheSetMock,
+	};
+}
+
+const {
+	OPEN_AI_CLIENT,
+	PARAGRAPH_TRANSLATOR,
+	RATE_LIMITER,
+	RETRY_POLICY,
+	SETTINGS_SERVICE,
+	SETTINGS_STORAGE,
+	SITE_CONTROL_SERVICE,
+	SITE_CONTROL_STORAGE,
+	TRANSLATION_CACHE_SERVICE,
+	computeTranslationHashMock,
+	createBrowserStorageSettingsStorageMock,
+	createBrowserStorageSiteControlMock,
+	createExponentialRetryPolicyMock,
+	createOpenAiCompatibleClientMock,
+	createParagraphTranslatorMock,
+	createSettingsServiceMock,
+	createSiteControlServiceMock,
+	createTokenBucketRateLimiterMock,
+	sleepMock,
+	translationCacheClearMock,
+	translationCacheGetMock,
+	translationCacheSetMock,
+} = vi.hoisted(createHoistedMocks);
+
+vi.mock("@/background/llm/openaiClient", () => ({
+	createOpenAiCompatibleClient: createOpenAiCompatibleClientMock,
+}));
+vi.mock("@/background/llm/rateLimiter", () => ({
+	createTokenBucketRateLimiter: createTokenBucketRateLimiterMock,
+}));
+vi.mock("@/background/llm/retryPolicy", () => ({
+	createExponentialRetryPolicy: createExponentialRetryPolicyMock,
+}));
+vi.mock("@/background/llm/translator", () => ({
+	createParagraphTranslator: createParagraphTranslatorMock,
+}));
+vi.mock("@/background/settings/service", () => ({
+	createSettingsService: createSettingsServiceMock,
+}));
+vi.mock("@/background/settings/storage", () => ({
+	createBrowserStorageSettingsStorage: createBrowserStorageSettingsStorageMock,
+}));
+vi.mock("@/background/siteControl/service", () => ({
+	createSiteControlService: createSiteControlServiceMock,
+}));
+vi.mock("@/background/siteControl/storage", () => ({
+	createBrowserStorageSiteControl: createBrowserStorageSiteControlMock,
+}));
+vi.mock("@/background/translations/hash", () => ({
+	computeTranslationHash: computeTranslationHashMock,
+}));
+vi.mock("@/shared/llm/config", () => ({
+	LLM_CONFIG: {
+		rateLimitCapacity: 5,
+		rateLimitRefillPerSecond: 2,
+		retryBaseDelayMs: 1000,
+		retryMaxAttempts: 3,
+		retryMaxDelayMs: 30000,
+	},
+}));
+vi.mock("@/shared/utils/async", () => ({
+	sleep: sleepMock,
+}));
+
+interface CapturedDependencies {
+	openAi?: unknown;
+	paragraphTranslator?: unknown;
+	settings?: unknown;
+	siteControl?: unknown;
+}
+
+let captured: CapturedDependencies;
+
+function createAdapter(): ReturnType<typeof createLlmBrowserAdapter> {
+	return createLlmBrowserAdapter({
+		translationCacheService: TRANSLATION_CACHE_SERVICE,
+	});
+}
+
+function resetMocks(): void {
+	SETTINGS_SERVICE.get.mockReset();
+	SETTINGS_SERVICE.set.mockReset();
+	computeTranslationHashMock.mockClear();
+	createBrowserStorageSettingsStorageMock.mockReset();
+	createBrowserStorageSiteControlMock.mockReset();
+	createExponentialRetryPolicyMock.mockReset();
+	createOpenAiCompatibleClientMock.mockReset();
+	createParagraphTranslatorMock.mockReset();
+	createSettingsServiceMock.mockReset();
+	createSiteControlServiceMock.mockReset();
+	createTokenBucketRateLimiterMock.mockReset();
+	sleepMock.mockReset();
+	translationCacheClearMock.mockReset();
+	translationCacheGetMock.mockReset();
+	translationCacheSetMock.mockReset();
+}
+
+function installCaptures(): void {
+	createBrowserStorageSettingsStorageMock.mockReturnValue(SETTINGS_STORAGE);
+	createBrowserStorageSiteControlMock.mockReturnValue(SITE_CONTROL_STORAGE);
+	createSettingsServiceMock.mockImplementation((dependencies: unknown) => {
+		captured.settings = dependencies;
+		return SETTINGS_SERVICE;
+	});
+	createSiteControlServiceMock.mockImplementation((dependencies: unknown) => {
+		captured.siteControl = dependencies;
+		return SITE_CONTROL_SERVICE;
+	});
+	createTokenBucketRateLimiterMock.mockReturnValue(RATE_LIMITER);
+	createExponentialRetryPolicyMock.mockReturnValue(RETRY_POLICY);
+	createOpenAiCompatibleClientMock.mockImplementation(
+		(dependencies: unknown) => {
+			captured.openAi = dependencies;
+			return OPEN_AI_CLIENT;
+		},
+	);
+	createParagraphTranslatorMock.mockImplementation((dependencies: unknown) => {
+		captured.paragraphTranslator = dependencies;
+		return PARAGRAPH_TRANSLATOR;
+	});
+}
+
+beforeEach(() => {
+	captured = {};
+	resetMocks();
+	installCaptures();
+});
+
+describe("createLlmBrowserAdapter", () => {
+	it("returns paragraph translator, settings, site control, and translation cache services", () => {
+		expect(createAdapter()).toEqual({
+			paragraphTranslator: PARAGRAPH_TRANSLATOR,
+			settingsService: SETTINGS_SERVICE,
+			siteControlService: SITE_CONTROL_SERVICE,
+			translationCacheService: TRANSLATION_CACHE_SERVICE,
+		});
+	});
+});
+
+describe("llm settings wiring", () => {
+	it("injects storage adapters into settings and site-control services", () => {
+		createAdapter();
+
+		expect(captured.settings).toEqual({ storage: SETTINGS_STORAGE });
+		expect(captured.siteControl).toEqual({ storage: SITE_CONTROL_STORAGE });
+	});
+});
+
+describe("openai client wiring", () => {
+	it("injects retry helpers and delegates settings reads", async () => {
+		const settings: LlmSettings = {
+			apiKey: "sk-test",
+			endpoint: "https://example.com/v1/chat/completions",
+			model: "gpt-4.1-mini",
+		};
+		SETTINGS_SERVICE.get.mockResolvedValue(settings);
+		createAdapter();
+
+		const dependencies = captured.openAi as {
+			fetcher: typeof fetch;
+			getSettings: () => Promise<LlmSettings>;
+			rateLimiter: unknown;
+			retryPolicy: unknown;
+		};
+
+		expect(createTokenBucketRateLimiterMock).toHaveBeenCalledTimes(1);
+		expect(createExponentialRetryPolicyMock).toHaveBeenCalledTimes(1);
+		expect(dependencies.rateLimiter).toBe(RATE_LIMITER);
+		expect(dependencies.retryPolicy).toBe(RETRY_POLICY);
+		expect(typeof dependencies.fetcher).toBe("function");
+		await expect(dependencies.getSettings()).resolves.toEqual(settings);
+	});
+});
+
+describe("paragraph translator wiring", () => {
+	it("injects cache, client, clock, hash, and settings reader", async () => {
+		const settings: LlmSettings = {
+			apiKey: "sk-test",
+			endpoint: "https://example.com/v1/chat/completions",
+			model: "gpt-4.1-mini",
+		};
+		SETTINGS_SERVICE.get.mockResolvedValue(settings);
+		vi.spyOn(Date, "now").mockReturnValue(1234);
+		createAdapter();
+
+		const dependencies = captured.paragraphTranslator as {
+			cache: unknown;
+			client: unknown;
+			clock: () => number;
+			computeHash: unknown;
+			getSettings: () => Promise<LlmSettings>;
+		};
+
+		expect(dependencies.cache).toBe(TRANSLATION_CACHE_SERVICE);
+		expect(dependencies.client).toBe(OPEN_AI_CLIENT);
+		expect(dependencies.clock()).toBe(1234);
+		expect(dependencies.computeHash).toBe(computeTranslationHashMock);
+		await expect(dependencies.getSettings()).resolves.toEqual(settings);
+	});
+});

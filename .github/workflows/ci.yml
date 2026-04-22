@@ -23,6 +23,15 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Download dictionary sources
+        run: |
+          mkdir -p data/raw
+          curl -fL -o data/raw/ecdict.csv https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv
+          curl -fL -o data/raw/lemma.en.txt https://raw.githubusercontent.com/skywind3000/lemma.en/master/lemma.en.txt
+
+      - name: Build dictionary artifacts
+        run: bun run build:dict
+
       - name: Test
         run: bun run test
 

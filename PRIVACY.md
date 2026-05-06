@@ -68,9 +68,9 @@ other destination.
 ## Source
 
 Word Buddy is open source under the MIT license. The source tree is
-mirrored on GitHub at <https://github.com/a322655/word-buddy>.
+mirrored on GitHub at <https://github.com/eigenigma/word-buddy>.
 
 ## Contact
 
 Questions or concerns: open an issue at
-<https://github.com/a322655/word-buddy/issues>.
+<https://github.com/eigenigma/word-buddy/issues>.

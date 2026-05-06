@@ -65,7 +65,7 @@ export default defineConfig({
 		name: "Word Buddy",
 		description:
 			"Firefox vocabulary helper for English reading: inline glosses, click-to-lookup, and a personal wordbook.",
-		homepage_url: "https://github.com/a322655/word-buddy",
+		homepage_url: "https://github.com/eigenigma/word-buddy",
 		action: {
 			default_title: "Word Buddy Settings",
 		},

@@ -2,7 +2,7 @@
 	"name": "word-buddy",
 	"description": "Firefox vocabulary helper for English reading: inline glosses, click-to-lookup, and a personal wordbook.",
 	"private": true,
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"type": "module",
 	"scripts": {
 		"build": "wxt build",

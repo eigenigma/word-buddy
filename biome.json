@@ -3,7 +3,6 @@
 		"actions": {
 			"source": {
 				"noDuplicateClasses": "on",
-				"organizeImports": "on",
 				"useSortedAttributes": "on",
 				"useSortedKeys": "off",
 				"useSortedProperties": "on"
@@ -25,7 +24,8 @@
 			"!**/*.min.mjs",
 			"!**/*.md",
 			"!**/*.mdx",
-			"!public"
+			"!public",
+			"!**/*.svg"
 		]
 	},
 	"formatter": {
@@ -52,13 +52,13 @@
 			},
 			"complexity": {
 				"noExcessiveCognitiveComplexity": {
-					"level": "warn",
+					"level": "on",
 					"options": {
 						"maxAllowedComplexity": 15
 					}
 				},
 				"noExcessiveLinesPerFunction": {
-					"level": "warn",
+					"level": "on",
 					"options": {
 						"maxLines": 50,
 						"skipBlankLines": true
@@ -67,10 +67,13 @@
 				"noExcessiveNestedTestSuites": "on",
 				"noForEach": "on",
 				"noImplicitCoercions": "on",
+				"noRedundantDefaultExport": "on",
 				"noUselessCatchBinding": "on",
+				"noUselessReturn": "on",
 				"noUselessStringConcat": "on",
-				"noUselessUndefined": "on",
+				"noUselessUndefined": "off",
 				"noVoid": "on",
+				"useArrayFind": "on",
 				"useLiteralKeys": "off",
 				"useSimplifiedLogicExpression": "on",
 				"useWhile": "on"
@@ -79,66 +82,117 @@
 				"noGlobalDirnameFilename": "on",
 				"noNestedComponentDefinitions": "on",
 				"noReactPropAssignments": "on",
+				"noUnusedInstantiation": "on",
 				"useJsonImportAttributes": "on",
 				"useUniqueElementIds": "on"
 			},
 			"nursery": {
+				"noAstroSetHtmlDirective": "off",
+				"noBunModules": "on",
+				"noComponentHookFactories": "on",
 				"noConditionalExpect": "on",
-				"noDeprecatedMediaType": "on",
-				"noDuplicateAttributes": "on",
-				"noDuplicateEnumValues": "on",
 				"noDuplicateSelectors": "on",
-				"noDuplicatedSpreadProps": "on",
 				"noEmptyObjectKeys": "on",
-				"noFloatingClasses": "on",
+				"noExcessiveNestedCallbacks": "on",
+				"noExcessiveSelectorClasses": {
+					"level": "on",
+					"options": {
+						"maxClasses": 3
+					}
+				},
+				"noExtendNative": "on",
 				"noFloatingPromises": "on",
+				"noIdenticalTestTitle": "on",
 				"noImpliedEval": "on",
-				"noLeakedRender": "on",
+				"noInvalidFileInputAccept": "on",
+				"noInvalidPropertyInitValue": "on",
+				"noJsonUnsafeValues": "on",
+				"noJsxLeakedDollar": "on",
 				"noMisusedPromises": "on",
-				"noNestedPromises": "on",
-				"noRedundantDefaultExport": "on",
-				"noScriptUrl": "on",
-				"noShadow": "on",
-				"noSyncScripts": "on",
+				"noNegationInEqualityCheck": "on",
+				"noNonScalableViewport": "on",
+				"noObsoleteTags": "on",
+				"noReturnInFinally": "on",
+				"noSvelteAtDebugTags": "off",
+				"noSvelteAtHtmlTags": "off",
+				"noThisOutsideOfClass": "on",
 				"noTopLevelLiterals": "on",
-				"noUndeclaredEnvVars": "on",
-				"noUnnecessaryConditions": "on",
+				"noUnmodifiedLoopCondition": "on",
+				"noUnnecessaryTemplateExpression": "on",
+				"noUnsafeIframeSandbox": "on",
 				"noUnsafePlusOperands": "on",
+				"noUnsafeTypeAssertion": "on",
+				"noUselessTypeConversion": "on",
+				"noVueUndeclaredDirectives": "off",
+				"noXorAsExponentiation": "on",
 				"useArraySome": "on",
-				"useArraySortCompare": "on",
+				"useAstroClientOnlyDirectiveValue": "off",
 				"useAwaitThenable": "off",
 				"useBaseline": "on",
-				"useConsistentMethodSignatures": "on",
-				"useExhaustiveSwitchCases": "on",
+				"useBetterDomTraversing": "on",
+				"useConsistentObjectKeys": "on",
+				"useConsistentTestIt": "on",
+				"useControlLabel": "on",
+				"useDomNodeTextContent": "on",
+				"useExhaustiveSwitchCases": {
+					"level": "on",
+					"options": {
+						"requireExplicitCase": true
+					}
+				},
 				"useExpect": "on",
 				"useExplicitType": "on",
-				"useFind": "on",
-				"useGlobalThis": "on",
+				"useFlatMathMinMax": "on",
+				"useIframeSandbox": "on",
 				"useImportsFirst": "on",
+				"useIncludes": "on",
+				"useLayeredStyles": "on",
+				"useMathMinMax": "on",
+				"useModernMathApis": "on",
 				"useNamedCaptureGroup": "on",
+				"useNamedLayer": "on",
 				"useNullishCoalescing": "on",
+				"useReactNamingConvention": "on",
+				"useReduceTypeParameter": "on",
+				"useRegexpTest": "on",
 				"useSortedClasses": "on",
-				"useSpread": "on",
-				"useUnicodeRegex": "on"
+				"useTailwindShorthandClasses": "on",
+				"useTestHooksInOrder": "on",
+				"useTestHooksOnTop": "on",
+				"useUnicodeRegex": "on",
+				"useVueBaseImport": "off"
 			},
 			"performance": {
 				"noDelete": "on",
-				"noReExportAll": "on"
+				"noReExportAll": "on",
+				"noSyncScripts": "on"
 			},
-			"recommended": true,
+			"preset": "recommended",
 			"security": {
 				"noSecrets": "off"
 			},
 			"style": {
 				"noCommonJs": "on",
 				"noDoneCallback": "on",
+				"noEnum": "on",
 				"noExportedImports": "on",
 				"noImplicitBoolean": "on",
+				"noJsxLiterals": "off",
 				"noMagicNumbers": "off",
+				"noMultiAssign": "on",
 				"noNegationElse": "on",
 				"noNestedTernary": "on",
 				"noParameterAssign": "on",
 				"noRestrictedGlobals": "on",
+				"noRestrictedImports": {
+					"level": "on",
+					"options": {
+						"paths": {
+							"react": "This project uses Preact. Import from 'preact' instead.",
+							"react-dom": "This project uses Preact. Import from 'preact' instead."
+						}
+					}
+				},
 				"noShoutyConstants": "on",
 				"noSubstr": "on",
 				"noUnusedTemplateLiteral": "on",
@@ -151,38 +205,48 @@
 				"useCollapsedElseIf": "on",
 				"useCollapsedIf": "on",
 				"useComponentExportOnlyModules": "on",
-				"useConsistentArrowReturn": "on",
 				"useConsistentArrayType": "on",
+				"useConsistentArrowReturn": "on",
 				"useConsistentBuiltinInstantiation": "on",
 				"useConsistentCurlyBraces": "on",
+				"useConsistentMethodSignatures": "on",
 				"useConsistentObjectDefinitions": {
-					"level": "warn",
+					"level": "on",
 					"options": {
 						"syntax": "explicit"
 					}
 				},
 				"useDefaultParameterLast": "on",
 				"useDefaultSwitchClause": "on",
-				"useEnumInitializers": "on",
 				"useExplicitLengthCheck": "on",
 				"useFilenamingConvention": {
-					"level": "warn",
+					"level": "on",
 					"options": {
 						"filenameCases": ["camelCase", "kebab-case", "PascalCase"]
 					}
 				},
 				"useForOf": "on",
 				"useFragmentSyntax": "on",
+				"useGlobalThis": "on",
 				"useGroupedAccessorPairs": "on",
 				"useNamingConvention": "off",
 				"useNodeAssertStrict": "on",
 				"useNumberNamespace": "on",
+				"useNumericSeparators": {
+					"level": "on",
+					"options": {
+						"hexadecimal": {
+							"minimumDigits": 7
+						}
+					}
+				},
 				"useObjectSpread": "on",
 				"useReactFunctionComponents": "on",
 				"useReadonlyClassProperties": "on",
 				"useSelfClosingElements": "on",
 				"useShorthandAssign": "on",
 				"useSingleVarDeclarator": "on",
+				"useSpreadOverApply": "on",
 				"useSymbolDescription": "on",
 				"useThrowNewError": "on",
 				"useThrowOnlyError": "on",
@@ -195,24 +259,97 @@
 				"noConstantBinaryExpressions": "on",
 				"noDeprecatedImports": "on",
 				"noDuplicateDependencies": "on",
+				"noDuplicatedSpreadProps": "on",
 				"noEmptyBlockStatements": "on",
 				"noEmptySource": "on",
+				"noEqualsToNull": "on",
 				"noEvolvingTypes": "on",
+				"noForIn": "on",
 				"noImportCycles": "on",
+				"noLeakedRender": "on",
 				"noMisplacedAssertion": "on",
+				"noNestedPromises": "on",
 				"noReactForwardRef": "on",
+				"noReturnAssign": "on",
+				"noShadow": "on",
 				"noSkippedTests": "on",
 				"noUnassignedVariables": "on",
+				"noUndeclaredEnvVars": "on",
+				"noUnnecessaryConditions": "off",
+				"noUnusedExpressions": "on",
 				"noVar": "on",
-				"useAwait": "off",
+				"useArraySortCompare": "on",
+				"useAwait": "on",
 				"useErrorMessage": "on",
-				"useGuardForIn": "on",
 				"useNumberToFixedDigitsArgument": "on",
 				"useStaticResponseMethods": "on",
 				"useStrictMode": "on"
 			}
 		}
 	},
+	"overrides": [
+		{
+			"includes": ["**/*.test.ts", "**/*.test.tsx"],
+			"linter": {
+				"rules": {
+					"complexity": {
+						"noExcessiveCognitiveComplexity": {
+							"level": "on",
+							"options": {
+								"maxAllowedComplexity": 20
+							}
+						},
+						"noExcessiveLinesPerFunction": {
+							"level": "on",
+							"options": {
+								"maxLines": 120,
+								"skipBlankLines": true
+							}
+						},
+						"noForEach": "off"
+					},
+					"correctness": {
+						"noUnusedInstantiation": "off"
+					},
+					"nursery": {
+						"noBunModules": "off",
+						"noComponentHookFactories": "off",
+						"noThisOutsideOfClass": "off"
+					},
+					"performance": {
+						"noReExportAll": "off"
+					},
+					"style": {
+						"noJsxLiterals": "off"
+					},
+					"suspicious": {
+						"noConsole": "off",
+						"useAwait": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["scripts/**"],
+			"linter": {
+				"rules": {
+					"nursery": {
+						"noBunModules": "off"
+					}
+				}
+			}
+		},
+		{
+			"includes": ["src/**"],
+			"linter": {
+				"rules": {
+					"style": {
+						"noProcessEnv": "on"
+					}
+				}
+			}
+		}
+	],
 	"vcs": {
 		"clientKind": "git",
 		"enabled": true,

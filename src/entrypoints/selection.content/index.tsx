@@ -104,11 +104,7 @@ function scheduleSelectionBubbleOpen(
 	popupHost: SelectionPopupHost,
 ): void {
 	const currentUiState = popupState.value;
-	if (
-		!currentUiState ||
-		currentUiState.kind !== "bubble" ||
-		resolveInFlight.value
-	) {
+	if (currentUiState?.kind !== "bubble" || resolveInFlight.value) {
 		return;
 	}
 

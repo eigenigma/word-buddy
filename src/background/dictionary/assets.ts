@@ -129,14 +129,10 @@ async function fetchAssetText(assetPath: PublicPath): Promise<string> {
 	return await response.text();
 }
 
-function parseJsonText(text: string): unknown {
-	return JSON.parse(text) as unknown;
-}
-
 export async function loadDictionarySeedManifest(): Promise<DictionarySeedManifest> {
 	const metadataText = await fetchAssetText(META_ASSET_PATH);
 	const metadata = DictionaryBuildMetadataSchema.parse(
-		parseJsonText(metadataText),
+		JSON.parse(metadataText),
 	);
 
 	return {
@@ -162,9 +158,9 @@ export async function loadDictionarySeedAssets(
 	}
 	const dictEntries = shardTexts.flatMap(
 		(text: string): readonly DictionaryEntry[] =>
-			DictionaryEntryArraySchema.parse(parseJsonText(text)),
+			DictionaryEntryArraySchema.parse(JSON.parse(text)),
 	);
-	const lemmaIndex = LemmaIndexSchema.parse(parseJsonText(lemmaText));
+	const lemmaIndex = LemmaIndexSchema.parse(JSON.parse(lemmaText));
 
 	return {
 		assetFingerprint: manifest.assetFingerprint,

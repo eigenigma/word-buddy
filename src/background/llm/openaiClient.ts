@@ -50,7 +50,7 @@ function buildUserMessage(input: TranslateParagraphInput): string {
 
 function parseJsonContent(content: string): unknown {
 	try {
-		return JSON.parse(content) as unknown;
+		return JSON.parse(content);
 	} catch (error: unknown) {
 		throw new Error("LLM response was not valid JSON", { cause: error });
 	}

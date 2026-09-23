@@ -6,16 +6,6 @@ type ObjectWebAccessibleResource = Exclude<
 	string
 >;
 
-type GeckoSettings = NonNullable<
-	Browser.runtime.Manifest["browser_specific_settings"]
->["gecko"];
-
-type GeckoSettingsWithDataCollection = GeckoSettings & {
-	data_collection_permissions?: {
-		readonly required?: readonly string[];
-	};
-};
-
 function isObjectWebAccessibleResources(
 	resources: NonNullable<Browser.runtime.Manifest["web_accessible_resources"]>,
 ): resources is ObjectWebAccessibleResource[] {
@@ -35,14 +25,6 @@ export default defineConfig({
 				wxt.config.manifestVersion !== 3
 			) {
 				return;
-			}
-
-			const gecko = manifest["browser_specific_settings"]?.gecko;
-			if (gecko) {
-				(gecko as GeckoSettingsWithDataCollection).data_collection_permissions =
-					{
-						required: ["none"],
-					};
 			}
 
 			const resources = manifest.web_accessible_resources;
@@ -73,6 +55,9 @@ export default defineConfig({
 		host_permissions: ["<all_urls>"],
 		browser_specific_settings: {
 			gecko: {
+				data_collection_permissions: {
+					required: ["none"],
+				},
 				id: "word-buddy@a322655.github.io",
 			},
 		},

@@ -1,6 +1,8 @@
 import "fake-indexeddb/auto";
 
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
+
+import type { LemmaEntry } from "@/shared/dictionary/types";
 
 import {
 	STATIC_DICTIONARY_DB_NAME,
@@ -109,5 +111,37 @@ describe("createLemmaExpansionService", () => {
 
 		expect(await service.expandLemmas([])).toEqual({});
 		expect(listAllCalls).toBe(0);
+	});
+
+	it("shares one repository read across concurrent first calls", async () => {
+		const listAll = vi.fn(async () => [{ lemma: "run", surface: "ran" }]);
+		const service = createLemmaExpansionService({
+			repository: { listAll: listAll },
+		});
+
+		const [runExpansions, agendaExpansions] = await Promise.all([
+			service.expandLemmas(["run"]),
+			service.expandLemmas(["agenda"]),
+		]);
+
+		expect(sortExpansions(runExpansions)).toEqual({ run: ["ran", "run"] });
+		expect(agendaExpansions).toEqual({ agenda: ["agenda"] });
+		expect(listAll).toHaveBeenCalledTimes(1);
+	});
+
+	it("retries the repository read after a failed attempt", async () => {
+		const listAll = vi
+			.fn<() => Promise<readonly LemmaEntry[]>>()
+			.mockRejectedValueOnce(new Error("read failed"))
+			.mockResolvedValueOnce([{ lemma: "go", surface: "went" }]);
+		const service = createLemmaExpansionService({
+			repository: { listAll: listAll },
+		});
+
+		await expect(service.expandLemmas(["go"])).rejects.toThrow("read failed");
+		expect(sortExpansions(await service.expandLemmas(["go"]))).toEqual({
+			go: ["go", "went"],
+		});
+		expect(listAll).toHaveBeenCalledTimes(2);
 	});
 });

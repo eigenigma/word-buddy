@@ -14,9 +14,11 @@ export interface LemmaExpansionService {
 	) => Promise<Readonly<Record<string, readonly string[]>>>;
 }
 
+type ReverseIndex = ReadonlyMap<string, readonly string[]>;
+
 function buildReverseIndex(
 	entries: readonly { lemma: string; surface: string }[],
-): Map<string, readonly string[]> {
+): ReverseIndex {
 	const mutableIndex = new Map<string, Set<string>>();
 
 	for (const entry of entries) {
@@ -40,7 +42,7 @@ function buildReverseIndex(
 
 function buildExpansionResult(
 	lemmas: readonly string[],
-	reverseIndex: ReadonlyMap<string, readonly string[]>,
+	reverseIndex: ReverseIndex,
 ): Readonly<Record<string, readonly string[]>> {
 	const expansions: Record<string, readonly string[]> = {};
 
@@ -54,7 +56,7 @@ function buildExpansionResult(
 export function createLemmaExpansionService(
 	dependencies: LemmaExpansionServiceDependencies,
 ): LemmaExpansionService {
-	let reverseIndex: Map<string, readonly string[]> | null = null;
+	let reverseIndexPromise: Promise<ReverseIndex> | null = null;
 
 	return {
 		expandLemmas: async (
@@ -64,11 +66,15 @@ export function createLemmaExpansionService(
 				return Object.freeze({});
 			}
 
-			reverseIndex ??= buildReverseIndex(
-				await dependencies.repository.listAll(),
-			);
+			reverseIndexPromise ??= dependencies.repository
+				.listAll()
+				.then(buildReverseIndex)
+				.catch((error: unknown): never => {
+					reverseIndexPromise = null;
+					throw error;
+				});
 
-			return buildExpansionResult(lemmas, reverseIndex);
+			return buildExpansionResult(lemmas, await reverseIndexPromise);
 		},
 	};
 }

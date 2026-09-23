@@ -1,6 +1,5 @@
 import type { BackgroundServices } from "@/background/composition";
 import {
-	type SettingsGetRequest,
 	SettingsGetRequestSchema,
 	type SettingsGetResponse,
 	type SettingsSetRequest,
@@ -8,25 +7,18 @@ import {
 	type SettingsSetResponse,
 } from "@/shared/runtime/messages/index";
 
-import type { HandlerDescriptor } from "../routerCore";
+import { defineMessageHandler, type MessageHandler } from "../routerCore";
 
-const settingsGetHandler: HandlerDescriptor<
-	SettingsGetRequest,
-	SettingsGetResponse
-> = {
+const settingsGetHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
-		_request: SettingsGetRequest,
 	): Promise<SettingsGetResponse> => ({
 		settings: await services.settingsService.get(),
 	}),
 	requestSchema: SettingsGetRequestSchema,
-};
+});
 
-const settingsSetHandler: HandlerDescriptor<
-	SettingsSetRequest,
-	SettingsSetResponse
-> = {
+const settingsSetHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
 		request: SettingsSetRequest,
@@ -34,9 +26,9 @@ const settingsSetHandler: HandlerDescriptor<
 		settings: await services.settingsService.set(request.settings),
 	}),
 	requestSchema: SettingsSetRequestSchema,
-};
+});
 
-export const settingsHandlerDescriptors = [
+export const settingsMessageHandlers: readonly MessageHandler[] = [
 	settingsGetHandler,
 	settingsSetHandler,
-] as const;
+];

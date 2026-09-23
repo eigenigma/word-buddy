@@ -6,7 +6,6 @@ import {
 	type WordbookExistsRequest,
 	WordbookExistsRequestSchema,
 	type WordbookExistsResponse,
-	type WordbookListRequest,
 	WordbookListRequestSchema,
 	type WordbookListResponse,
 	type WordbookRemoveRequest,
@@ -19,14 +18,12 @@ import {
 
 import {
 	broadcastInvalidation,
-	type HandlerDescriptor,
+	defineMessageHandler,
+	type MessageHandler,
 	withErrorEnvelope,
 } from "../routerCore";
 
-const wordbookAddHandler: HandlerDescriptor<
-	WordbookAddRequest,
-	WordbookAddResponse
-> = {
+const wordbookAddHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
 		request: WordbookAddRequest,
@@ -49,12 +46,9 @@ const wordbookAddHandler: HandlerDescriptor<
 			}),
 		),
 	requestSchema: WordbookAddRequestSchema,
-};
+});
 
-const wordbookExistsHandler: HandlerDescriptor<
-	WordbookExistsRequest,
-	WordbookExistsResponse
-> = {
+const wordbookExistsHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
 		request: WordbookExistsRequest,
@@ -62,25 +56,18 @@ const wordbookExistsHandler: HandlerDescriptor<
 		exists: await services.wordbookService.existsByLemma(request.lemma),
 	}),
 	requestSchema: WordbookExistsRequestSchema,
-};
+});
 
-const wordbookListHandler: HandlerDescriptor<
-	WordbookListRequest,
-	WordbookListResponse
-> = {
+const wordbookListHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
-		_request: WordbookListRequest,
 	): Promise<WordbookListResponse> => ({
 		entries: await services.wordbookService.listAll(),
 	}),
 	requestSchema: WordbookListRequestSchema,
-};
+});
 
-const wordbookRemoveHandler: HandlerDescriptor<
-	WordbookRemoveRequest,
-	WordbookRemoveResponse
-> = {
+const wordbookRemoveHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
 		request: WordbookRemoveRequest,
@@ -103,12 +90,9 @@ const wordbookRemoveHandler: HandlerDescriptor<
 			}),
 		),
 	requestSchema: WordbookRemoveRequestSchema,
-};
+});
 
-const wordbookUpdateHandler: HandlerDescriptor<
-	WordbookUpdateRequest,
-	WordbookUpdateResponse
-> = {
+const wordbookUpdateHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
 		request: WordbookUpdateRequest,
@@ -131,12 +115,12 @@ const wordbookUpdateHandler: HandlerDescriptor<
 			}),
 		),
 	requestSchema: WordbookUpdateRequestSchema,
-};
+});
 
-export const wordbookHandlerDescriptors = [
+export const wordbookMessageHandlers: readonly MessageHandler[] = [
 	wordbookAddHandler,
 	wordbookExistsHandler,
 	wordbookListHandler,
 	wordbookRemoveHandler,
 	wordbookUpdateHandler,
-] as const;
+];

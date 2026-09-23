@@ -3,7 +3,6 @@ import {
 	type SiteControlIsBlockedRequest,
 	SiteControlIsBlockedRequestSchema,
 	type SiteControlIsBlockedResponse,
-	type SiteControlListRequest,
 	SiteControlListRequestSchema,
 	type SiteControlListResponse,
 	type SiteControlSetRequest,
@@ -13,28 +12,22 @@ import {
 
 import {
 	broadcastSiteControlChanged,
-	type HandlerDescriptor,
+	defineMessageHandler,
+	type MessageHandler,
 } from "../routerCore";
 
-const siteControlListHandler: HandlerDescriptor<
-	SiteControlListRequest,
-	SiteControlListResponse
-> = {
+const siteControlListHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
-		_request: SiteControlListRequest,
 	): Promise<SiteControlListResponse> => ({
 		state: {
 			blockedHosts: await services.siteControlService.listBlockedHosts(),
 		},
 	}),
 	requestSchema: SiteControlListRequestSchema,
-};
+});
 
-const siteControlIsBlockedHandler: HandlerDescriptor<
-	SiteControlIsBlockedRequest,
-	SiteControlIsBlockedResponse
-> = {
+const siteControlIsBlockedHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
 		request: SiteControlIsBlockedRequest,
@@ -42,12 +35,9 @@ const siteControlIsBlockedHandler: HandlerDescriptor<
 		blocked: await services.siteControlService.isHostBlocked(request.host),
 	}),
 	requestSchema: SiteControlIsBlockedRequestSchema,
-};
+});
 
-const siteControlSetHandler: HandlerDescriptor<
-	SiteControlSetRequest,
-	SiteControlSetResponse
-> = {
+const siteControlSetHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
 		request: SiteControlSetRequest,
@@ -60,10 +50,10 @@ const siteControlSetHandler: HandlerDescriptor<
 		return { state: state };
 	},
 	requestSchema: SiteControlSetRequestSchema,
-};
+});
 
-export const siteControlHandlerDescriptors = [
+export const siteControlMessageHandlers: readonly MessageHandler[] = [
 	siteControlListHandler,
 	siteControlIsBlockedHandler,
 	siteControlSetHandler,
-] as const;
+];

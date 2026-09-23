@@ -3,18 +3,16 @@ import {
 	type LlmTranslateParagraphRequest,
 	LlmTranslateParagraphRequestSchema,
 	type LlmTranslateParagraphResponse,
-	type LlmTranslationCacheClearRequest,
 	LlmTranslationCacheClearRequestSchema,
 	type LlmTranslationCacheClearResponse,
 } from "@/shared/runtime/messages/index";
+import {
+	defineMessageHandler,
+	type MessageHandler,
+	withErrorEnvelope,
+} from "../routerCore";
 
-import type { HandlerDescriptor } from "../routerCore";
-import { withErrorEnvelope } from "../routerCore";
-
-const translateParagraphHandler: HandlerDescriptor<
-	LlmTranslateParagraphRequest,
-	LlmTranslateParagraphResponse
-> = {
+const translateParagraphHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
 		request: LlmTranslateParagraphRequest,
@@ -34,22 +32,18 @@ const translateParagraphHandler: HandlerDescriptor<
 			}),
 		),
 	requestSchema: LlmTranslateParagraphRequestSchema,
-};
+});
 
-const translationCacheClearHandler: HandlerDescriptor<
-	LlmTranslationCacheClearRequest,
-	LlmTranslationCacheClearResponse
-> = {
+const translationCacheClearHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
-		_request: LlmTranslationCacheClearRequest,
 	): Promise<LlmTranslationCacheClearResponse> => ({
 		clearedCount: await services.translationCacheService.clear(),
 	}),
 	requestSchema: LlmTranslationCacheClearRequestSchema,
-};
+});
 
-export const llmHandlerDescriptors = [
+export const llmMessageHandlers: readonly MessageHandler[] = [
 	translateParagraphHandler,
 	translationCacheClearHandler,
-] as const;
+];

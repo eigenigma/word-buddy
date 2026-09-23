@@ -47,9 +47,31 @@ export interface MessageRouter {
 	readonly handle: (message: unknown) => BackgroundMessageResponse;
 }
 
-export interface HandlerDescriptor<Req, Res extends BackgroundResponsePayload> {
+interface HandlerDescriptor<Req, Res extends BackgroundResponsePayload> {
 	readonly requestSchema: ZodType<Req>;
 	readonly handle: (services: BackgroundServices, request: Req) => Promise<Res>;
+}
+
+export type MessageHandler = (
+	services: BackgroundServices,
+	message: unknown,
+) => Promise<BackgroundResponsePayload> | null;
+
+export function defineMessageHandler<
+	Req,
+	Res extends BackgroundResponsePayload,
+>(descriptor: HandlerDescriptor<Req, Res>): MessageHandler {
+	return (
+		services: BackgroundServices,
+		message: unknown,
+	): Promise<Res> | null => {
+		const parsedMessage = descriptor.requestSchema.safeParse(message);
+		if (!parsedMessage.success) {
+			return null;
+		}
+
+		return descriptor.handle(services, parsedMessage.data);
+	};
 }
 
 export function reportBackgroundError(context: string, error: unknown): void {

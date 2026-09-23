@@ -11,12 +11,11 @@ import {
 	type LemmaNormalizeRequest,
 	LemmaNormalizeRequestSchema,
 	type LemmaNormalizeResponse,
-	type StaticDictionarySeedStatusRequest,
 	StaticDictionarySeedStatusRequestSchema,
 	type StaticDictionarySeedStatusResponse,
 } from "@/shared/runtime/messages/index";
 
-import type { HandlerDescriptor } from "../routerCore";
+import { defineMessageHandler, type MessageHandler } from "../routerCore";
 
 function toLookupResult(entry: DictionaryEntry): DictionaryLookupResult {
 	return {
@@ -29,22 +28,15 @@ function toLookupResult(entry: DictionaryEntry): DictionaryLookupResult {
 	};
 }
 
-const staticDictionarySeedStatusHandler: HandlerDescriptor<
-	StaticDictionarySeedStatusRequest,
-	StaticDictionarySeedStatusResponse
-> = {
+const staticDictionarySeedStatusHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
-		_request: StaticDictionarySeedStatusRequest,
 	): Promise<StaticDictionarySeedStatusResponse> =>
 		await services.dictionarySeedService.getStatus(),
 	requestSchema: StaticDictionarySeedStatusRequestSchema,
-};
+});
 
-const dictionaryExpandLemmasHandler: HandlerDescriptor<
-	DictionaryExpandLemmasRequest,
-	DictionaryExpandLemmasResponse
-> = {
+const dictionaryExpandLemmasHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
 		request: DictionaryExpandLemmasRequest,
@@ -54,12 +46,9 @@ const dictionaryExpandLemmasHandler: HandlerDescriptor<
 		),
 	}),
 	requestSchema: DictionaryExpandLemmasRequestSchema,
-};
+});
 
-const dictionaryLookupHandler: HandlerDescriptor<
-	DictionaryLookupRequest,
-	DictionaryLookupResponse
-> = {
+const dictionaryLookupHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
 		request: DictionaryLookupRequest,
@@ -72,12 +61,9 @@ const dictionaryLookupHandler: HandlerDescriptor<
 		};
 	},
 	requestSchema: DictionaryLookupRequestSchema,
-};
+});
 
-const lemmaNormalizeHandler: HandlerDescriptor<
-	LemmaNormalizeRequest,
-	LemmaNormalizeResponse
-> = {
+const lemmaNormalizeHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
 		request: LemmaNormalizeRequest,
@@ -87,11 +73,11 @@ const lemmaNormalizeHandler: HandlerDescriptor<
 		),
 	}),
 	requestSchema: LemmaNormalizeRequestSchema,
-};
+});
 
-export const dictionaryHandlerDescriptors = [
+export const dictionaryMessageHandlers: readonly MessageHandler[] = [
 	staticDictionarySeedStatusHandler,
 	dictionaryExpandLemmasHandler,
 	dictionaryLookupHandler,
 	lemmaNormalizeHandler,
-] as const;
+];

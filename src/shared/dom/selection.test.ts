@@ -76,6 +76,12 @@ function restoreRangeGeometry(): void {
 	}
 }
 
+function createStyleDeclaration(display: string): CSSStyleDeclaration {
+	const { style } = document.createElement("div");
+	style.display = display;
+	return style;
+}
+
 function resetDocumentBody(): void {
 	document.body.replaceChildren();
 }
@@ -175,9 +181,7 @@ describe("findEnclosingBlock", () => {
 
 		vi.spyOn(globalThis, "getComputedStyle").mockImplementation(
 			(element: Element): CSSStyleDeclaration =>
-				({
-					display: element === block ? "block" : "inline",
-				}) as CSSStyleDeclaration,
+				createStyleDeclaration(element === block ? "block" : "inline"),
 		);
 
 		expect(findEnclosingBlock(textNode)).toBe(block);
@@ -190,7 +194,7 @@ describe("findEnclosingBlock", () => {
 		document.body.append(inline);
 
 		vi.spyOn(globalThis, "getComputedStyle").mockImplementation(
-			(): CSSStyleDeclaration => ({ display: "inline" }) as CSSStyleDeclaration,
+			(): CSSStyleDeclaration => createStyleDeclaration("inline"),
 		);
 
 		expect(findEnclosingBlock(textNode)).toBe(document.body);

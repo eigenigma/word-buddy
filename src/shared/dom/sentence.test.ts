@@ -87,4 +87,13 @@ describe("extractContainingSentence", () => {
 
 		expect(sentence).toBe("First sentence. Another sentence!");
 	});
+
+	it("treats line breaks as sentence boundaries", () => {
+		expect(
+			extractContainingSentence(
+				"Roses are red\nViolets are blue\nsugar is sweet",
+				"Violets",
+			),
+		).toBe("Violets are blue");
+	});
 });

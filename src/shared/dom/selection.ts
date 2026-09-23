@@ -57,14 +57,17 @@ export function getSelectionRect(
 	return snapshotRect(boundingRect);
 }
 
-export function findEnclosingBlock(node: Node): Element {
+export function findEnclosingBlock(node: Node): HTMLElement {
 	let currentElement = resolveElement(node);
 	const ownerWindow = node.ownerDocument?.defaultView ?? globalThis.window;
 
 	while (currentElement) {
-		const display = ownerWindow.getComputedStyle(currentElement).display;
-
-		if (BLOCK_DISPLAY_VALUES.has(display)) {
+		if (
+			currentElement instanceof HTMLElement &&
+			BLOCK_DISPLAY_VALUES.has(
+				ownerWindow.getComputedStyle(currentElement).display,
+			)
+		) {
 			return currentElement;
 		}
 
@@ -74,7 +77,7 @@ export function findEnclosingBlock(node: Node): Element {
 	const fallbackElement =
 		node.ownerDocument?.body ?? node.ownerDocument?.documentElement;
 
-	if (fallbackElement) {
+	if (fallbackElement instanceof HTMLElement) {
 		return fallbackElement;
 	}
 

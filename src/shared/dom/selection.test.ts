@@ -187,6 +187,24 @@ describe("findEnclosingBlock", () => {
 		expect(findEnclosingBlock(textNode)).toBe(block);
 	});
 
+	it("skips block-level elements that are not HTML elements", () => {
+		const block = document.createElement("p");
+		const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+		const textNode = document.createTextNode("agenda");
+		svg.append(textNode);
+		block.append(svg);
+		document.body.append(block);
+
+		vi.spyOn(globalThis, "getComputedStyle").mockImplementation(
+			(element: Element): CSSStyleDeclaration =>
+				createStyleDeclaration(
+					element === block || element === svg ? "block" : "inline",
+				),
+		);
+
+		expect(findEnclosingBlock(textNode)).toBe(block);
+	});
+
 	it("falls back to the document body when no block ancestor is found", () => {
 		const inline = document.createElement("span");
 		const textNode = document.createTextNode("agenda");

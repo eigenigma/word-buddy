@@ -25,7 +25,8 @@ function getSelectionContext(currentUiState: SelectionBubbleUiState): string {
 		selection.range.commonAncestorContainer,
 	);
 	return extractContainingSentence(
-		contextBlock.textContent ?? "",
+		// biome-ignore lint/nursery/useDomNodeTextContent: lookup context must be rendered text; textContent pulls in hidden and script content and drops line breaks
+		contextBlock.innerText,
 		selection.text,
 	);
 }

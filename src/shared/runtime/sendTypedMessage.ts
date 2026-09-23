@@ -9,8 +9,8 @@ type MessageClientArgs<Req extends { readonly type: string }> =
 		? []
 		: [payload: PayloadWithoutType<Req>];
 
-export async function sendTypedMessage<Req, Res>(
-	request: Req,
+async function sendTypedMessage<Res>(
+	request: unknown,
 	responseSchema: ZodType<Res>,
 ): Promise<Res> {
 	const response = await browser.runtime.sendMessage(request);
@@ -25,12 +25,12 @@ export function createMessageClient<
 	readonly type: Req["type"];
 }): (...args: MessageClientArgs<Req>) => Promise<Res> {
 	return async (...args: MessageClientArgs<Req>): Promise<Res> => {
-		const payload = (args[0] ?? {}) as PayloadWithoutType<Req>;
+		const [payload] = args;
 		return await sendTypedMessage(
 			{
 				...payload,
 				type: descriptor.type,
-			} as Req,
+			},
 			descriptor.responseSchema,
 		);
 	};

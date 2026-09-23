@@ -3,10 +3,14 @@ import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import type {
-	DictionaryBuildMetadata,
 	DictionaryEntry,
-	LemmaIndex,
+	LemmaEntry,
 } from "../../shared/dictionary/types";
+import {
+	type DictionarySeedAssets,
+	loadDictionarySeedAssets,
+	loadDictionarySeedManifest,
+} from "./assets";
 
 vi.mock(
 	"@/shared/dictionary/utils",
@@ -17,32 +21,24 @@ type DictionaryQueryService = import("./queryService").DictionaryQueryService;
 type CreateDictionaryQueryService =
 	typeof import("./queryService").createDictionaryQueryService;
 
-const DATA_DIRECTORY = new URL("../../../public/data/", import.meta.url);
-const META_PATH = new URL("dict-meta.json", DATA_DIRECTORY);
-const LEMMA_PATH = new URL("lemma-index.json", DATA_DIRECTORY);
+const PUBLIC_DIRECTORY = new URL("../../../public/", import.meta.url);
 
-async function loadArtifacts(): Promise<{
-	dictEntries: readonly DictionaryEntry[];
-	lemmaIndex: LemmaIndex;
-}> {
-	const [metaText, lemmaText] = await Promise.all([
-		readFile(META_PATH, "utf8"),
-		readFile(LEMMA_PATH, "utf8"),
-	]);
-	const metadata = JSON.parse(metaText) as DictionaryBuildMetadata;
-	const shardTexts = await Promise.all(
-		Array.from({ length: metadata.dictShardCount }, (_, index: number) =>
-			readFile(new URL(`dict-${index}.json`, DATA_DIRECTORY), "utf8"),
-		),
-	);
+function resolvePublicAssetUrl(assetPath: string): string {
+	return new URL(`.${assetPath}`, PUBLIC_DIRECTORY).href;
+}
 
-	return {
-		dictEntries: shardTexts.flatMap(
-			(text: string): readonly DictionaryEntry[] =>
-				JSON.parse(text) as readonly DictionaryEntry[],
-		),
-		lemmaIndex: JSON.parse(lemmaText) as LemmaIndex,
-	};
+async function fetchPublicAsset(assetUrl: string): Promise<Response> {
+	return new Response(await readFile(new URL(assetUrl), "utf8"));
+}
+
+async function loadArtifacts(): Promise<DictionarySeedAssets> {
+	vi.stubGlobal("browser", { runtime: { getURL: resolvePublicAssetUrl } });
+	vi.stubGlobal("fetch", fetchPublicAsset);
+	try {
+		return await loadDictionarySeedAssets(await loadDictionarySeedManifest());
+	} finally {
+		vi.unstubAllGlobals();
+	}
 }
 
 let createDictionaryQueryService: CreateDictionaryQueryService;
@@ -50,9 +46,14 @@ let service: DictionaryQueryService;
 
 beforeAll(async () => {
 	({ createDictionaryQueryService } = await import("./queryService"));
-	const { dictEntries, lemmaIndex } = await loadArtifacts();
+	const { dictEntries, lemmaEntries } = await loadArtifacts();
 	const dictMap = new Map(
 		dictEntries.map((entry: DictionaryEntry) => [entry.word, entry] as const),
+	);
+	const lemmaMap = new Map(
+		lemmaEntries.map(
+			(entry: LemmaEntry) => [entry.surface, entry.lemma] as const,
+		),
 	);
 
 	service = createDictionaryQueryService({
@@ -60,7 +61,7 @@ beforeAll(async () => {
 			getByWord: async (word: string) => dictMap.get(word),
 		},
 		lemmaRepository: {
-			getBySurface: async (surface: string) => lemmaIndex[surface],
+			getBySurface: async (surface: string) => lemmaMap.get(surface),
 		},
 	});
 });

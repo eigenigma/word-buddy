@@ -1,0 +1,89 @@
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+
+variables:
+  BUN_VERSION: "1.4.2"
+  BUN_INSTALL: "$CI_PROJECT_DIR/.bun"
+  FORCE_COLOR: "1"
+
+stages:
+  - quality
+  - test
+  - build
+
+default:
+  image: node:24.21.0-bookworm-slim
+  interruptible: true
+  cache: &bun-cache
+    key:
+      prefix: bun
+      files:
+        - bun.lock
+    paths:
+      - .bun/bin/
+      - node_modules/
+    policy: pull
+  before_script:
+    - export PATH="$BUN_INSTALL/bin:$PATH"
+    - |
+      if ! command -v bun >/dev/null 2>&1 || [ "$(bun --version)" != "$BUN_VERSION" ]; then
+        apt-get update
+        apt-get install -y --no-install-recommends bash ca-certificates curl unzip ${EXTRA_APT_PACKAGES:-}
+        rm -rf /var/lib/apt/lists/*
+        curl -fsSL https://bun.com/install | bash -s "bun-v$BUN_VERSION"
+      elif [ -n "${EXTRA_APT_PACKAGES:-}" ]; then
+        apt-get update
+        apt-get install -y --no-install-recommends ${EXTRA_APT_PACKAGES}
+        rm -rf /var/lib/apt/lists/*
+      fi
+    - node --version
+    - bun --version
+    - bun install --frozen-lockfile
+
+typecheck:
+  stage: quality
+  # bun install touches node_modules/.bin on every run, so each pull-push job
+  # would re-upload the whole cache; this job is the only writer.
+  cache:
+    <<: *bun-cache
+    policy: pull-push
+  script:
+    - bun run typecheck
+
+lint:
+  stage: quality
+  script:
+    - bun run lint
+
+# In the quality stage so it runs alongside typecheck and lint instead of
+# adding a serial stage.
+dictionary:
+  stage: quality
+  variables:
+    EXTRA_APT_PACKAGES: ca-certificates curl
+  script:
+    - mkdir -p data/raw
+    - curl -fL -o data/raw/ecdict.csv https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv
+    - curl -fL -o data/raw/lemma.en.txt https://raw.githubusercontent.com/skywind3000/lemma.en/master/lemma.en.txt
+    - bun run build:dict
+  artifacts:
+    paths:
+      - public/data/
+    expire_in: 1 day
+
+test:
+  stage: test
+  # queryService.test.ts loads the generated dictionary from public/data/.
+  dependencies:
+    - dictionary
+  script:
+    - bun run test
+
+build-firefox:
+  stage: build
+  dependencies:
+    - dictionary
+  script:
+    - bun run build:firefox

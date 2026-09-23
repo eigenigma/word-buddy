@@ -9,12 +9,12 @@ import {
 	withErrorEnvelope,
 } from "./routerCore";
 
-function createServices(
+function createBroadcastServices(
 	overrides: {
 		readonly invalidate?: () => Promise<void>;
 		readonly siteControlChanged?: () => Promise<void>;
 	} = {},
-): BackgroundServices {
+): Pick<BackgroundServices, "annotatorBroadcaster"> {
 	return {
 		annotatorBroadcaster: {
 			invalidate:
@@ -22,7 +22,7 @@ function createServices(
 			siteControlChanged:
 				overrides.siteControlChanged ?? (async (): Promise<void> => undefined),
 		},
-	} as unknown as BackgroundServices;
+	};
 }
 
 afterEach(() => {
@@ -39,7 +39,8 @@ describe("reportBackgroundError", () => {
 
 		expect(reportErrorMock).toHaveBeenCalledTimes(1);
 		expect(reportErrorMock.mock.calls[0]?.[0]).toBeInstanceOf(Error);
-		expect((reportErrorMock.mock.calls[0]?.[0] as Error).message).toBe(
+		expect(reportErrorMock.mock.calls[0]?.[0]).toHaveProperty(
+			"message",
 			"word-buddy: test: boom",
 		);
 	});
@@ -57,7 +58,7 @@ describe("broadcast helpers", () => {
 		vi.stubGlobal("reportError", reportErrorMock);
 
 		broadcastInvalidation(
-			createServices({
+			createBroadcastServices({
 				invalidate: async (): Promise<void> => {
 					throw new Error("invalidate failed");
 				},
@@ -65,7 +66,8 @@ describe("broadcast helpers", () => {
 		);
 		await Promise.resolve();
 
-		expect((reportErrorMock.mock.calls[0]?.[0] as Error).message).toBe(
+		expect(reportErrorMock.mock.calls[0]?.[0]).toHaveProperty(
+			"message",
 			"word-buddy: annotator invalidation failed: invalidate failed",
 		);
 	});
@@ -75,7 +77,7 @@ describe("broadcast helpers", () => {
 		vi.stubGlobal("reportError", reportErrorMock);
 
 		broadcastSiteControlChanged(
-			createServices({
+			createBroadcastServices({
 				siteControlChanged: async (): Promise<void> => {
 					throw new Error("site control failed");
 				},
@@ -83,7 +85,8 @@ describe("broadcast helpers", () => {
 		);
 		await Promise.resolve();
 
-		expect((reportErrorMock.mock.calls[0]?.[0] as Error).message).toBe(
+		expect(reportErrorMock.mock.calls[0]?.[0]).toHaveProperty(
+			"message",
 			"word-buddy: site control broadcast failed: site control failed",
 		);
 	});

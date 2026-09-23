@@ -43,7 +43,8 @@ describe("createAnnotatorBroadcaster", () => {
 
 		await broadcaster.siteControlChanged();
 		expect(reportErrorMock).toHaveBeenCalledTimes(1);
-		expect((reportErrorMock.mock.calls[0]?.[0] as Error).message).toBe(
+		expect(reportErrorMock.mock.calls[0]?.[0]).toHaveProperty(
+			"message",
 			"word-buddy: annotator broadcast failed: site control receiver missing",
 		);
 	});

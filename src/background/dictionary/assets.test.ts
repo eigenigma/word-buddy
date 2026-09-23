@@ -78,7 +78,7 @@ beforeEach(() => {
 		runtime: {
 			getURL: getUrlMock,
 		},
-	} as unknown as typeof browser);
+	});
 	vi.stubGlobal("fetch", fetchMock);
 	Object.defineProperty(globalThis.crypto, "subtle", {
 		configurable: true,

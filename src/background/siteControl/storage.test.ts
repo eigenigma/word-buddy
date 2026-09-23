@@ -21,7 +21,7 @@ beforeEach(() => {
 				set: setStorageMock,
 			},
 		},
-	} as unknown as typeof browser);
+	});
 });
 
 afterEach(() => {
@@ -62,8 +62,9 @@ describe("createBrowserStorageSiteControl", () => {
 
 		expect(state).toEqual(EMPTY_SITE_CONTROL_STATE);
 		expect(reportErrorMock).toHaveBeenCalledTimes(1);
-		expect((reportErrorMock.mock.calls[0]?.[0] as Error).message).toContain(
-			"Invalid site control state in storage",
+		expect(reportErrorMock.mock.calls[0]?.[0]).toHaveProperty(
+			"message",
+			expect.stringContaining("Invalid site control state in storage"),
 		);
 	});
 

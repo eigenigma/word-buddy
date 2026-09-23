@@ -18,7 +18,7 @@ beforeEach(() => {
 				set: setStorageMock,
 			},
 		},
-	} as unknown as typeof browser);
+	});
 });
 
 afterEach(() => {
@@ -59,8 +59,9 @@ describe("createBrowserStorageSettingsStorage", () => {
 
 		expect(settings).toEqual(EMPTY_LLM_SETTINGS);
 		expect(reportErrorMock).toHaveBeenCalledTimes(1);
-		expect((reportErrorMock.mock.calls[0]?.[0] as Error).message).toContain(
-			"Invalid LLM settings in storage",
+		expect(reportErrorMock.mock.calls[0]?.[0]).toHaveProperty(
+			"message",
+			expect.stringContaining("Invalid LLM settings in storage"),
 		);
 	});
 

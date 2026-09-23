@@ -25,7 +25,7 @@ beforeEach(async () => {
 		tabs: {
 			query: queryTabsMock,
 		},
-	} as unknown as typeof browser);
+	});
 	popupStateModule = await import("./state");
 	popupStateModule.popupState.value = { kind: "loading" };
 });

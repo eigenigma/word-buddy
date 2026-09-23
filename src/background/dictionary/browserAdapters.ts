@@ -77,18 +77,27 @@ function createDictionarySeedBrowserAdapter(): DictionarySeedService {
 	});
 }
 
-function createLemmaExpansionBrowserAdapter(): LemmaExpansionService {
+function createLemmaExpansionBrowserAdapter(
+	dictionarySeedService: DictionarySeedService,
+): LemmaExpansionService {
 	return createLemmaExpansionService({
 		repository: {
-			listAll: () => staticDictionaryDb.lemma.toArray(),
+			listAll: async () => {
+				await dictionarySeedService.ensureSeeded();
+				return await staticDictionaryDb.lemma.toArray();
+			},
 		},
 	});
 }
 
 export function createDictionaryBrowserAdapter(): DictionaryBrowserAdapter {
+	const dictionarySeedService = createDictionarySeedBrowserAdapter();
+
 	return {
 		dictionaryQueryService: createDictionaryQueryBrowserAdapter(),
-		dictionarySeedService: createDictionarySeedBrowserAdapter(),
-		lemmaExpansionService: createLemmaExpansionBrowserAdapter(),
+		dictionarySeedService: dictionarySeedService,
+		lemmaExpansionService: createLemmaExpansionBrowserAdapter(
+			dictionarySeedService,
+		),
 	};
 }

@@ -4,6 +4,7 @@ import type { LemmaExpansionServiceDependencies } from "@/background/dictionary/
 import type { DictionaryQueryServiceDependencies } from "@/background/dictionary/queryService";
 import type { DictionarySeedServiceDependencies } from "@/background/dictionary/seed";
 import type { DictionaryEntry, LemmaEntry } from "@/shared/dictionary/types";
+import { sleep } from "@/shared/utils/async";
 
 import { createDictionaryBrowserAdapter } from "./browserAdapters";
 
@@ -41,7 +42,10 @@ const {
 	staticDictionaryDbMock,
 } = vi.hoisted(() => ({
 	DICTIONARY_QUERY_SERVICE: { id: "dictionary-query-service" },
-	DICTIONARY_SEED_SERVICE: { id: "dictionary-seed-service" },
+	DICTIONARY_SEED_SERVICE: {
+		ensureSeeded: vi.fn<() => Promise<void>>(),
+		id: "dictionary-seed-service",
+	},
 	DICTIONARY_SEED_STORAGE: { id: "seed-storage" },
 	LEMMA_EXPANSION_SERVICE: { id: "lemma-expansion-service" },
 	createDictionaryQueryServiceMock:
@@ -98,6 +102,7 @@ function resetDictionaryMocks(): void {
 	createDictionaryQueryServiceMock.mockReset();
 	createDictionarySeedServiceMock.mockReset();
 	createLemmaExpansionServiceMock.mockReset();
+	DICTIONARY_SEED_SERVICE.ensureSeeded.mockReset();
 	staticDictionaryDbMock.dict.bulkPut.mockReset();
 	staticDictionaryDbMock.dict.clear.mockReset();
 	staticDictionaryDbMock.dict.count.mockReset();
@@ -176,16 +181,22 @@ describe("dictionary seed wiring", () => {
 });
 
 describe("lemma expansion wiring", () => {
-	it("routes listAll through staticDictionaryDb.lemma.toArray", async () => {
+	it("reads staticDictionaryDb.lemma only after the adapter's seed service finishes", async () => {
+		const seed = Promise.withResolvers<void>();
+		DICTIONARY_SEED_SERVICE.ensureSeeded.mockReturnValue(seed.promise);
 		staticDictionaryDbMock.lemma.toArray.mockResolvedValue([TEST_LEMMA_ENTRY]);
 		createDictionaryBrowserAdapter();
 
 		const dependencies = createLemmaExpansionServiceMock.mock.lastCall?.[0];
 		assert.isDefined(dependencies);
 
-		await expect(dependencies.repository.listAll()).resolves.toEqual([
-			TEST_LEMMA_ENTRY,
-		]);
+		const pendingRows = dependencies.repository.listAll();
+		await sleep(0);
+		expect(staticDictionaryDbMock.lemma.toArray).not.toHaveBeenCalled();
+
+		seed.resolve();
+		await expect(pendingRows).resolves.toEqual([TEST_LEMMA_ENTRY]);
 		expect(staticDictionaryDbMock.lemma.toArray).toHaveBeenCalledTimes(1);
+		expect(createDictionarySeedServiceMock).toHaveBeenCalledTimes(1);
 	});
 });

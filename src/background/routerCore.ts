@@ -78,15 +78,15 @@ export function reportBackgroundError(context: string, error: unknown): void {
 	reportGlobalError(context, error);
 }
 
-export function broadcastInvalidation(services: BackgroundServices): void {
+type BroadcastServices = Pick<BackgroundServices, "annotatorBroadcaster">;
+
+export function broadcastInvalidation(services: BroadcastServices): void {
 	services.annotatorBroadcaster.invalidate().catch((error: unknown): void => {
 		reportBackgroundError("word-buddy: annotator invalidation failed", error);
 	});
 }
 
-export function broadcastSiteControlChanged(
-	services: BackgroundServices,
-): void {
+export function broadcastSiteControlChanged(services: BroadcastServices): void {
 	services.annotatorBroadcaster
 		.siteControlChanged()
 		.catch((error: unknown): void => {

@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { TranslationCacheServiceDependencies } from "@/background/translations/service";
 import type { TranslationCacheEntry } from "@/shared/translations/types";
 
 import { createTranslationCacheBrowserAdapter } from "./browserAdapters";
@@ -20,7 +21,8 @@ const {
 		browserTabsQueryMock: vi.fn(),
 		browserTabsSendMessageMock: vi.fn(),
 		createAnnotatorBroadcasterMock: vi.fn(),
-		createTranslationCacheServiceMock: vi.fn(),
+		createTranslationCacheServiceMock:
+			vi.fn<(dependencies: TranslationCacheServiceDependencies) => unknown>(),
 		createWordbookServiceMock: vi.fn(),
 		wordbookListAllMock: listAllMock,
 		userDbMock: {
@@ -121,15 +123,6 @@ vi.mock("@/background/wordbook/database", () => ({
 vi.mock("@/background/wordbook/service", () => ({
 	createWordbookService: createWordbookServiceMock,
 }));
-vi.mock("@/shared/llm/config", () => ({
-	LLM_CONFIG: {
-		rateLimitCapacity: 5,
-		rateLimitRefillPerSecond: 2,
-		retryBaseDelayMs: 1000,
-		retryMaxAttempts: 3,
-		retryMaxDelayMs: 30000,
-	},
-}));
 vi.mock("@/shared/utils/async", () => ({
 	sleep: vi.fn(),
 }));
@@ -144,12 +137,6 @@ const TEST_TRANSLATION_CACHE_ENTRY: TranslationCacheEntry = {
 	},
 	words: ["agenda"],
 };
-
-interface CapturedDependencies {
-	translationCache?: unknown;
-}
-
-let captured: CapturedDependencies;
 
 function resetDatabaseMocks(): void {
 	browserTabsQueryMock.mockReset();
@@ -169,25 +156,15 @@ function resetDatabaseMocks(): void {
 	userDbMock.words.update.mockReset();
 }
 
-function installCaptures(): void {
-	createTranslationCacheServiceMock.mockImplementation(
-		(dependencies: unknown) => {
-			captured.translationCache = dependencies;
-			return TRANSLATION_CACHE_SERVICE;
-		},
-	);
-}
-
 beforeEach(() => {
-	captured = {};
 	resetDatabaseMocks();
-	installCaptures();
+	createTranslationCacheServiceMock.mockReturnValue(TRANSLATION_CACHE_SERVICE);
 	vi.stubGlobal("browser", {
 		tabs: {
 			query: browserTabsQueryMock,
 			sendMessage: browserTabsSendMessageMock,
 		},
-	} as unknown as typeof browser);
+	});
 });
 
 describe("createTranslationCacheBrowserAdapter", () => {
@@ -205,14 +182,8 @@ describe("translation cache wiring", () => {
 		userDbMock.translations.put.mockResolvedValue("hash");
 		createTranslationCacheBrowserAdapter();
 
-		const dependencies = captured.translationCache as {
-			repository: {
-				clearAll: () => Promise<void>;
-				count: () => Promise<number>;
-				getByHash: (hash: string) => Promise<TranslationCacheEntry | undefined>;
-				putEntry: (entry: TranslationCacheEntry) => Promise<string>;
-			};
-		};
+		const dependencies = createTranslationCacheServiceMock.mock.lastCall?.[0];
+		assert.isDefined(dependencies);
 
 		await dependencies.repository.clearAll();
 		await expect(dependencies.repository.count()).resolves.toBe(3);

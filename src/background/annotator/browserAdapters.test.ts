@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type { AnnotatorBroadcasterDependencies } from "@/background/annotator/broadcaster";
 
 import { createAnnotatorBrowserAdapter } from "./browserAdapters";
 
@@ -17,7 +19,8 @@ const {
 		ANNOTATOR_BROADCASTER: { id: "annotator" },
 		browserTabsQueryMock: vi.fn(),
 		browserTabsSendMessageMock: vi.fn(),
-		createAnnotatorBroadcasterMock: vi.fn(),
+		createAnnotatorBroadcasterMock:
+			vi.fn<(dependencies: AnnotatorBroadcasterDependencies) => unknown>(),
 		createTranslationCacheServiceMock: vi.fn(),
 		createWordbookServiceMock: vi.fn(),
 		wordbookListAllMock: listAllMock,
@@ -119,24 +122,9 @@ vi.mock("@/background/wordbook/database", () => ({
 vi.mock("@/background/wordbook/service", () => ({
 	createWordbookService: createWordbookServiceMock,
 }));
-vi.mock("@/shared/llm/config", () => ({
-	LLM_CONFIG: {
-		rateLimitCapacity: 5,
-		rateLimitRefillPerSecond: 2,
-		retryBaseDelayMs: 1000,
-		retryMaxAttempts: 3,
-		retryMaxDelayMs: 30000,
-	},
-}));
 vi.mock("@/shared/utils/async", () => ({
 	sleep: vi.fn(),
 }));
-
-interface CapturedDependencies {
-	annotator?: unknown;
-}
-
-let captured: CapturedDependencies;
 
 function resetDatabaseMocks(): void {
 	browserTabsQueryMock.mockReset();
@@ -156,23 +144,15 @@ function resetDatabaseMocks(): void {
 	userDbMock.words.update.mockReset();
 }
 
-function installCaptures(): void {
-	createAnnotatorBroadcasterMock.mockImplementation((dependencies: unknown) => {
-		captured.annotator = dependencies;
-		return ANNOTATOR_BROADCASTER;
-	});
-}
-
 beforeEach(() => {
-	captured = {};
 	resetDatabaseMocks();
-	installCaptures();
+	createAnnotatorBroadcasterMock.mockReturnValue(ANNOTATOR_BROADCASTER);
 	vi.stubGlobal("browser", {
 		tabs: {
 			query: browserTabsQueryMock,
 			sendMessage: browserTabsSendMessageMock,
 		},
-	} as unknown as typeof browser);
+	});
 });
 
 describe("createAnnotatorBrowserAdapter", () => {
@@ -186,12 +166,8 @@ describe("annotator broadcaster wiring", () => {
 		browserTabsQueryMock.mockResolvedValue([{ id: 1 }, { id: undefined }]);
 		createAnnotatorBrowserAdapter();
 
-		const dependencies = captured.annotator as {
-			tabs: {
-				queryAll: () => Promise<readonly { readonly id: number }[]>;
-				sendToTab: (tabId: number, message: unknown) => Promise<void>;
-			};
-		};
+		const dependencies = createAnnotatorBroadcasterMock.mock.lastCall?.[0];
+		assert.isDefined(dependencies);
 
 		await expect(dependencies.tabs.queryAll()).resolves.toEqual([{ id: 1 }]);
 		await dependencies.tabs.sendToTab(1, { type: "ping" });

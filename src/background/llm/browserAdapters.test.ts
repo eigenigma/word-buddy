@@ -1,20 +1,29 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	assert,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	type Mock,
+	vi,
+} from "vitest";
 
+import type { OpenAiClientDependencies } from "@/background/llm/openaiClient";
+import type { ParagraphTranslatorDependencies } from "@/background/llm/translator";
+import type { SettingsServiceDependencies } from "@/background/settings/service";
+import type { SiteControlServiceDependencies } from "@/background/siteControl/service";
 import type { TranslationCacheService } from "@/background/translations/service";
 import type { LlmSettings } from "@/shared/settings/types";
 
 import { createLlmBrowserAdapter } from "./browserAdapters";
 
-type GenericMock = ReturnType<typeof vi.fn>;
-type TranslationCacheClearMock = ReturnType<
-	typeof vi.fn<() => Promise<number>>
+type GenericMock = Mock;
+type FactoryMock<TDependencies> = Mock<
+	(dependencies: TDependencies) => unknown
 >;
-type TranslationCacheGetMock = ReturnType<
-	typeof vi.fn<(hash: string) => Promise<null>>
->;
-type TranslationCacheSetMock = ReturnType<
-	typeof vi.fn<(entry: unknown) => Promise<void>>
->;
+type TranslationCacheClearMock = Mock<() => Promise<number>>;
+type TranslationCacheGetMock = Mock<(hash: string) => Promise<null>>;
+type TranslationCacheSetMock = Mock<(entry: unknown) => Promise<void>>;
 
 interface HoistedMocks {
 	readonly OPEN_AI_CLIENT: { readonly translateParagraph: GenericMock };
@@ -33,10 +42,10 @@ interface HoistedMocks {
 	readonly createBrowserStorageSettingsStorageMock: GenericMock;
 	readonly createBrowserStorageSiteControlMock: GenericMock;
 	readonly createExponentialRetryPolicyMock: GenericMock;
-	readonly createOpenAiCompatibleClientMock: GenericMock;
-	readonly createParagraphTranslatorMock: GenericMock;
-	readonly createSettingsServiceMock: GenericMock;
-	readonly createSiteControlServiceMock: GenericMock;
+	readonly createOpenAiCompatibleClientMock: FactoryMock<OpenAiClientDependencies>;
+	readonly createParagraphTranslatorMock: FactoryMock<ParagraphTranslatorDependencies>;
+	readonly createSettingsServiceMock: FactoryMock<SettingsServiceDependencies>;
+	readonly createSiteControlServiceMock: FactoryMock<SiteControlServiceDependencies>;
 	readonly createTokenBucketRateLimiterMock: GenericMock;
 	readonly sleepMock: GenericMock;
 	readonly translationCacheClearMock: TranslationCacheClearMock;
@@ -67,10 +76,14 @@ function createHoistedMocks(): HoistedMocks {
 		createBrowserStorageSettingsStorageMock: vi.fn(),
 		createBrowserStorageSiteControlMock: vi.fn(),
 		createExponentialRetryPolicyMock: vi.fn(),
-		createOpenAiCompatibleClientMock: vi.fn(),
-		createParagraphTranslatorMock: vi.fn(),
-		createSettingsServiceMock: vi.fn(),
-		createSiteControlServiceMock: vi.fn(),
+		createOpenAiCompatibleClientMock:
+			vi.fn<(dependencies: OpenAiClientDependencies) => unknown>(),
+		createParagraphTranslatorMock:
+			vi.fn<(dependencies: ParagraphTranslatorDependencies) => unknown>(),
+		createSettingsServiceMock:
+			vi.fn<(dependencies: SettingsServiceDependencies) => unknown>(),
+		createSiteControlServiceMock:
+			vi.fn<(dependencies: SiteControlServiceDependencies) => unknown>(),
 		createTokenBucketRateLimiterMock: vi.fn(),
 		sleepMock: vi.fn(),
 		translationCacheClearMock: translationCacheClearMock,
@@ -131,27 +144,9 @@ vi.mock("@/background/siteControl/storage", () => ({
 vi.mock("@/background/translations/hash", () => ({
 	computeTranslationHash: computeTranslationHashMock,
 }));
-vi.mock("@/shared/llm/config", () => ({
-	LLM_CONFIG: {
-		rateLimitCapacity: 5,
-		rateLimitRefillPerSecond: 2,
-		retryBaseDelayMs: 1000,
-		retryMaxAttempts: 3,
-		retryMaxDelayMs: 30000,
-	},
-}));
 vi.mock("@/shared/utils/async", () => ({
 	sleep: sleepMock,
 }));
-
-interface CapturedDependencies {
-	openAi?: unknown;
-	paragraphTranslator?: unknown;
-	settings?: unknown;
-	siteControl?: unknown;
-}
-
-let captured: CapturedDependencies;
 
 function createAdapter(): ReturnType<typeof createLlmBrowserAdapter> {
 	return createLlmBrowserAdapter({
@@ -177,35 +172,16 @@ function resetMocks(): void {
 	translationCacheSetMock.mockReset();
 }
 
-function installCaptures(): void {
+beforeEach(() => {
+	resetMocks();
 	createBrowserStorageSettingsStorageMock.mockReturnValue(SETTINGS_STORAGE);
 	createBrowserStorageSiteControlMock.mockReturnValue(SITE_CONTROL_STORAGE);
-	createSettingsServiceMock.mockImplementation((dependencies: unknown) => {
-		captured.settings = dependencies;
-		return SETTINGS_SERVICE;
-	});
-	createSiteControlServiceMock.mockImplementation((dependencies: unknown) => {
-		captured.siteControl = dependencies;
-		return SITE_CONTROL_SERVICE;
-	});
+	createSettingsServiceMock.mockReturnValue(SETTINGS_SERVICE);
+	createSiteControlServiceMock.mockReturnValue(SITE_CONTROL_SERVICE);
 	createTokenBucketRateLimiterMock.mockReturnValue(RATE_LIMITER);
 	createExponentialRetryPolicyMock.mockReturnValue(RETRY_POLICY);
-	createOpenAiCompatibleClientMock.mockImplementation(
-		(dependencies: unknown) => {
-			captured.openAi = dependencies;
-			return OPEN_AI_CLIENT;
-		},
-	);
-	createParagraphTranslatorMock.mockImplementation((dependencies: unknown) => {
-		captured.paragraphTranslator = dependencies;
-		return PARAGRAPH_TRANSLATOR;
-	});
-}
-
-beforeEach(() => {
-	captured = {};
-	resetMocks();
-	installCaptures();
+	createOpenAiCompatibleClientMock.mockReturnValue(OPEN_AI_CLIENT);
+	createParagraphTranslatorMock.mockReturnValue(PARAGRAPH_TRANSLATOR);
 });
 
 describe("createLlmBrowserAdapter", () => {
@@ -223,8 +199,12 @@ describe("llm settings wiring", () => {
 	it("injects storage adapters into settings and site-control services", () => {
 		createAdapter();
 
-		expect(captured.settings).toEqual({ storage: SETTINGS_STORAGE });
-		expect(captured.siteControl).toEqual({ storage: SITE_CONTROL_STORAGE });
+		expect(createSettingsServiceMock).toHaveBeenLastCalledWith({
+			storage: SETTINGS_STORAGE,
+		});
+		expect(createSiteControlServiceMock).toHaveBeenLastCalledWith({
+			storage: SITE_CONTROL_STORAGE,
+		});
 	});
 });
 
@@ -238,12 +218,8 @@ describe("openai client wiring", () => {
 		SETTINGS_SERVICE.get.mockResolvedValue(settings);
 		createAdapter();
 
-		const dependencies = captured.openAi as {
-			fetcher: typeof fetch;
-			getSettings: () => Promise<LlmSettings>;
-			rateLimiter: unknown;
-			retryPolicy: unknown;
-		};
+		const dependencies = createOpenAiCompatibleClientMock.mock.lastCall?.[0];
+		assert.isDefined(dependencies);
 
 		expect(createTokenBucketRateLimiterMock).toHaveBeenCalledTimes(1);
 		expect(createExponentialRetryPolicyMock).toHaveBeenCalledTimes(1);
@@ -265,13 +241,8 @@ describe("paragraph translator wiring", () => {
 		vi.spyOn(Date, "now").mockReturnValue(1234);
 		createAdapter();
 
-		const dependencies = captured.paragraphTranslator as {
-			cache: unknown;
-			client: unknown;
-			clock: () => number;
-			computeHash: unknown;
-			getSettings: () => Promise<LlmSettings>;
-		};
+		const dependencies = createParagraphTranslatorMock.mock.lastCall?.[0];
+		assert.isDefined(dependencies);
 
 		expect(dependencies.cache).toBe(TRANSLATION_CACHE_SERVICE);
 		expect(dependencies.client).toBe(OPEN_AI_CLIENT);

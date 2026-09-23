@@ -1,5 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { LemmaExpansionServiceDependencies } from "@/background/dictionary/lemmaExpansionService";
+import type { DictionaryQueryServiceDependencies } from "@/background/dictionary/queryService";
+import type { DictionarySeedServiceDependencies } from "@/background/dictionary/seed";
 import type { DictionaryEntry, LemmaEntry } from "@/shared/dictionary/types";
 
 import { createDictionaryBrowserAdapter } from "./browserAdapters";
@@ -41,9 +44,12 @@ const {
 	DICTIONARY_SEED_SERVICE: { id: "dictionary-seed-service" },
 	DICTIONARY_SEED_STORAGE: { id: "seed-storage" },
 	LEMMA_EXPANSION_SERVICE: { id: "lemma-expansion-service" },
-	createDictionaryQueryServiceMock: vi.fn(),
-	createDictionarySeedServiceMock: vi.fn(),
-	createLemmaExpansionServiceMock: vi.fn(),
+	createDictionaryQueryServiceMock:
+		vi.fn<(dependencies: DictionaryQueryServiceDependencies) => unknown>(),
+	createDictionarySeedServiceMock:
+		vi.fn<(dependencies: DictionarySeedServiceDependencies) => unknown>(),
+	createLemmaExpansionServiceMock:
+		vi.fn<(dependencies: LemmaExpansionServiceDependencies) => unknown>(),
 	staticDictionaryDbMock: {
 		dict: {
 			bulkPut: vi.fn(),
@@ -88,14 +94,6 @@ vi.mock("@/background/dictionary/seed", () => ({
 	createDictionarySeedService: createDictionarySeedServiceMock,
 }));
 
-interface CapturedDependencies {
-	dictionaryQuery?: unknown;
-	dictionarySeed?: unknown;
-	lemmaExpansion?: unknown;
-}
-
-let captured: CapturedDependencies;
-
 function resetDictionaryMocks(): void {
 	createDictionaryQueryServiceMock.mockReset();
 	createDictionarySeedServiceMock.mockReset();
@@ -112,31 +110,11 @@ function resetDictionaryMocks(): void {
 	staticDictionaryDbMock.transaction.mockClear();
 }
 
-function installDictionaryCaptures(): void {
-	createDictionaryQueryServiceMock.mockImplementation(
-		(dependencies: unknown) => {
-			captured.dictionaryQuery = dependencies;
-			return DICTIONARY_QUERY_SERVICE;
-		},
-	);
-	createDictionarySeedServiceMock.mockImplementation(
-		(dependencies: unknown) => {
-			captured.dictionarySeed = dependencies;
-			return DICTIONARY_SEED_SERVICE;
-		},
-	);
-	createLemmaExpansionServiceMock.mockImplementation(
-		(dependencies: unknown) => {
-			captured.lemmaExpansion = dependencies;
-			return LEMMA_EXPANSION_SERVICE;
-		},
-	);
-}
-
 beforeEach(() => {
-	captured = {};
 	resetDictionaryMocks();
-	installDictionaryCaptures();
+	createDictionaryQueryServiceMock.mockReturnValue(DICTIONARY_QUERY_SERVICE);
+	createDictionarySeedServiceMock.mockReturnValue(DICTIONARY_SEED_SERVICE);
+	createLemmaExpansionServiceMock.mockReturnValue(LEMMA_EXPANSION_SERVICE);
 });
 
 describe("createDictionaryBrowserAdapter", () => {
@@ -157,14 +135,8 @@ describe("dictionary query wiring", () => {
 		staticDictionaryDbMock.lemma.get.mockResolvedValue({ lemma: "agenda" });
 		createDictionaryBrowserAdapter();
 
-		const dependencies = captured.dictionaryQuery as {
-			readonly dictRepository: {
-				readonly getByWord: (word: string) => Promise<unknown>;
-			};
-			readonly lemmaRepository: {
-				readonly getBySurface: (surface: string) => Promise<unknown>;
-			};
-		};
+		const dependencies = createDictionaryQueryServiceMock.mock.lastCall?.[0];
+		assert.isDefined(dependencies);
 
 		await expect(
 			dependencies.dictRepository.getByWord("agenda"),
@@ -183,16 +155,8 @@ describe("dictionary seed wiring", () => {
 		staticDictionaryDbMock.lemma.count.mockResolvedValue(2);
 		createDictionaryBrowserAdapter();
 
-		const dependencies = captured.dictionarySeed as {
-			repository: {
-				clearAll: () => Promise<void>;
-				countDictEntries: () => Promise<number>;
-				countLemmaEntries: () => Promise<number>;
-				putDictEntries: (entries: readonly DictionaryEntry[]) => Promise<void>;
-				putLemmaEntries: (entries: readonly LemmaEntry[]) => Promise<void>;
-			};
-			storage: unknown;
-		};
+		const dependencies = createDictionarySeedServiceMock.mock.lastCall?.[0];
+		assert.isDefined(dependencies);
 
 		expect(dependencies.storage).toBe(DICTIONARY_SEED_STORAGE);
 		await dependencies.repository.clearAll();
@@ -216,9 +180,8 @@ describe("lemma expansion wiring", () => {
 		staticDictionaryDbMock.lemma.toArray.mockResolvedValue([TEST_LEMMA_ENTRY]);
 		createDictionaryBrowserAdapter();
 
-		const dependencies = captured.lemmaExpansion as {
-			repository: { readonly listAll: () => Promise<readonly LemmaEntry[]> };
-		};
+		const dependencies = createLemmaExpansionServiceMock.mock.lastCall?.[0];
+		assert.isDefined(dependencies);
 
 		await expect(dependencies.repository.listAll()).resolves.toEqual([
 			TEST_LEMMA_ENTRY,

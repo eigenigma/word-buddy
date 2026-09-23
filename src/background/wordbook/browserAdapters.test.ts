@@ -1,9 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type {
-	WordbookEntry,
-	WordbookUpdatePatch,
-} from "@/shared/wordbook/types";
+import type { WordbookServiceDependencies } from "@/background/wordbook/service";
+import type { WordbookEntry } from "@/shared/wordbook/types";
 
 import { createWordbookBrowserAdapter } from "./browserAdapters";
 
@@ -24,7 +22,8 @@ const {
 		browserTabsSendMessageMock: vi.fn(),
 		createAnnotatorBroadcasterMock: vi.fn(),
 		createTranslationCacheServiceMock: vi.fn(),
-		createWordbookServiceMock: vi.fn(),
+		createWordbookServiceMock:
+			vi.fn<(dependencies: WordbookServiceDependencies) => unknown>(),
 		wordbookListAllMock: listAllMock,
 		userDbMock: {
 			translations: {
@@ -124,15 +123,6 @@ vi.mock("@/background/wordbook/database", () => ({
 vi.mock("@/background/wordbook/service", () => ({
 	createWordbookService: createWordbookServiceMock,
 }));
-vi.mock("@/shared/llm/config", () => ({
-	LLM_CONFIG: {
-		rateLimitCapacity: 5,
-		rateLimitRefillPerSecond: 2,
-		retryBaseDelayMs: 1000,
-		retryMaxAttempts: 3,
-		retryMaxDelayMs: 30000,
-	},
-}));
 vi.mock("@/shared/utils/async", () => ({
 	sleep: vi.fn(),
 }));
@@ -144,12 +134,6 @@ const TEST_WORDBOOK_ENTRY: WordbookEntry = {
 	original: "agenda",
 	sourceUrl: "https://example.com/article",
 };
-
-interface CapturedDependencies {
-	wordbook?: unknown;
-}
-
-let captured: CapturedDependencies;
 
 function resetDatabaseMocks(): void {
 	browserTabsQueryMock.mockReset();
@@ -169,23 +153,15 @@ function resetDatabaseMocks(): void {
 	userDbMock.words.update.mockReset();
 }
 
-function installCaptures(): void {
-	createWordbookServiceMock.mockImplementation((dependencies: unknown) => {
-		captured.wordbook = dependencies;
-		return WORDBOOK_SERVICE;
-	});
-}
-
 beforeEach(() => {
-	captured = {};
 	resetDatabaseMocks();
-	installCaptures();
+	createWordbookServiceMock.mockReturnValue(WORDBOOK_SERVICE);
 	vi.stubGlobal("browser", {
 		tabs: {
 			query: browserTabsQueryMock,
 			sendMessage: browserTabsSendMessageMock,
 		},
-	} as unknown as typeof browser);
+	});
 });
 
 describe("createWordbookBrowserAdapter", () => {
@@ -203,18 +179,8 @@ describe("wordbook wiring", () => {
 		userDbMock.words.update.mockResolvedValue(1);
 		createWordbookBrowserAdapter();
 
-		const dependencies = captured.wordbook as {
-			repository: {
-				deleteByLemma: (lemma: string) => Promise<void>;
-				getByLemma: (lemma: string) => Promise<WordbookEntry | undefined>;
-				listAll: () => Promise<readonly WordbookEntry[]>;
-				putWord: (entry: WordbookEntry) => Promise<unknown>;
-				updateByLemma: (
-					lemma: string,
-					patch: WordbookUpdatePatch,
-				) => Promise<number>;
-			};
-		};
+		const dependencies = createWordbookServiceMock.mock.lastCall?.[0];
+		assert.isDefined(dependencies);
 
 		await dependencies.repository.deleteByLemma("agenda");
 		await expect(dependencies.repository.getByLemma("agenda")).resolves.toEqual(

@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, assert, beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import type { LlmSettings } from "../../shared/settings/types";
 import {
@@ -33,14 +34,14 @@ interface HappyPathFetcherState {
 	readonly totalCalls: { current: number };
 }
 
-function assert(condition: unknown, message: string): asserts condition {
-	if (!condition) {
-		throw new Error(message);
-	}
-}
+const RequestBodySchema = z.looseObject({
+	messages: z.array(z.looseObject({ content: z.string().optional() })),
+});
 
-function extractRequestBody(init?: RequestInit): Record<string, unknown> {
-	return JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+function extractRequestBody(
+	init?: RequestInit,
+): z.output<typeof RequestBodySchema> {
+	return RequestBodySchema.parse(JSON.parse(String(init?.body ?? "{}")));
 }
 
 function createHappyPathFetcher(state: HappyPathFetcherState): typeof fetch {
@@ -77,11 +78,7 @@ function createHappyPathFetcher(state: HappyPathFetcherState): typeof fetch {
 			"request should enable json_object mode",
 		);
 
-		const messages = body["messages"];
-		assert(Array.isArray(messages), "request should include messages array");
-		const userMessage = (messages as Array<{ readonly content?: string }>)[1]
-			?.content;
-		if (typeof userMessage === "string" && userMessage.includes('"today"')) {
+		if (body.messages[1]?.content?.includes('"today"')) {
 			return createJsonResponse({
 				choices: [
 					{

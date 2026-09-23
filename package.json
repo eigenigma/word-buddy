@@ -22,6 +22,7 @@
 		"@biomejs/biome": "^2.4.11",
 		"@iconify-json/mdi": "^1.2.3",
 		"@preact/preset-vite": "^2.10.6",
+		"@types/node": "^24.13.6",
 		"@vitest/coverage-v8": "^5.0.1",
 		"@wxt-dev/unocss": "^1.0.1",
 		"csv-parse": "^7.0.2",

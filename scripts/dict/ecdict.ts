@@ -1,4 +1,5 @@
 import { parse } from "csv-parse/sync";
+import { z } from "zod";
 
 import {
 	type DictionaryEntry,
@@ -7,22 +8,6 @@ import {
 } from "../../src/shared/dictionary/types";
 import { normalizeLookupTerm } from "../../src/shared/dictionary/utils";
 import { normalizeText, parseInteger, sortStrings } from "./utils";
-
-export interface EcdictRow {
-	readonly audio: string | null;
-	readonly bnc: number | null;
-	readonly collins: number | null;
-	readonly definition: string | null;
-	readonly detail: string | null;
-	readonly exchange: string | null;
-	readonly frq: number | null;
-	readonly oxford: boolean;
-	readonly phonetic: string | null;
-	readonly pos: string | null;
-	readonly tag: string | null;
-	readonly translation: string | null;
-	readonly word: string;
-}
 
 export interface DictionaryBuildResult {
 	readonly counts: {
@@ -51,67 +36,44 @@ function splitTags(value: string | null): readonly string[] {
 	return sortStrings(tags);
 }
 
-type EcdictRowColumn = keyof EcdictRow;
-type MutableEcdictRow = {
-	-readonly [Column in EcdictRowColumn]: EcdictRow[Column];
-};
-type EcdictRowColumnParser<Column extends EcdictRowColumn = EcdictRowColumn> = {
-	readonly column: Column;
-	readonly parser: (value: string) => EcdictRow[Column];
-};
-
-const ECDICT_ROW_COLUMN_PARSERS: readonly EcdictRowColumnParser[] = [
-	{ column: "audio", parser: normalizeText },
-	{ column: "bnc", parser: parseInteger },
-	{ column: "collins", parser: parseInteger },
-	{ column: "definition", parser: normalizeText },
-	{ column: "detail", parser: normalizeText },
-	{ column: "exchange", parser: normalizeText },
-	{ column: "frq", parser: parseInteger },
-	{
-		column: "oxford",
-		parser: (value: string): boolean => normalizeText(value) === "1",
-	},
-	{ column: "phonetic", parser: normalizeText },
-	{ column: "pos", parser: normalizeText },
-	{ column: "tag", parser: normalizeText },
-	{ column: "translation", parser: normalizeText },
-	{ column: "word", parser: (value: string): string => value.trim() },
-];
-
-function setParsedEcdictColumn<Column extends EcdictRowColumn>(
-	row: Partial<MutableEcdictRow>,
-	column: Column,
-	value: EcdictRow[Column],
-): void {
-	(row as MutableEcdictRow)[column] = value;
+function toOxfordFlag(value: string): boolean {
+	return normalizeText(value) === "1";
 }
 
-function parseEcdictRow(
-	record: Record<string, string>,
-	rowNumber: number,
-): EcdictRow {
-	const missingColumns: EcdictRowColumn[] = [];
-	const parsedRow: Partial<MutableEcdictRow> = {};
+const TextColumnSchema = z.string().transform(normalizeText);
+const IntegerColumnSchema = z.string().transform(parseInteger);
 
-	for (const { column, parser } of ECDICT_ROW_COLUMN_PARSERS) {
-		const value = record[column];
+const EcdictRowSchema = z
+	.object({
+		audio: TextColumnSchema,
+		bnc: IntegerColumnSchema,
+		collins: IntegerColumnSchema,
+		definition: TextColumnSchema,
+		detail: TextColumnSchema,
+		exchange: TextColumnSchema,
+		frq: IntegerColumnSchema,
+		oxford: z.string().transform(toOxfordFlag),
+		phonetic: TextColumnSchema,
+		pos: TextColumnSchema,
+		tag: TextColumnSchema,
+		translation: TextColumnSchema,
+		word: z.string().trim(),
+	})
+	.readonly();
 
-		if (value === undefined) {
-			missingColumns.push(column);
-			continue;
-		}
+export type EcdictRow = z.output<typeof EcdictRowSchema>;
 
-		setParsedEcdictColumn(parsedRow, column, parser(value));
-	}
+const ExchangeCodeSchema = z.enum(EXCHANGE_CODES);
 
-	if (missingColumns.length > 0) {
+function parseEcdictRow(record: unknown, rowNumber: number): EcdictRow {
+	const result = EcdictRowSchema.safeParse(record);
+	if (!result.success) {
 		throw new Error(
-			`Malformed ecdict.csv row ${rowNumber}: missing columns ${missingColumns.join(", ")}.`,
+			`Malformed ecdict.csv row ${rowNumber}: ${z.prettifyError(result.error)}`,
 		);
 	}
 
-	return parsedRow as EcdictRow;
+	return result.data;
 }
 
 export function parseEcdictCsv(csvText: string): readonly EcdictRow[] {
@@ -120,14 +82,14 @@ export function parseEcdictCsv(csvText: string): readonly EcdictRow[] {
 		columns: true,
 		skip_empty_lines: true,
 		trim: true,
-	}) as Record<string, string>[];
+	});
 
 	if (records.length === 0) {
 		throw new Error("ecdict.csv has no data rows.");
 	}
 
 	return records.map(
-		(record: Record<string, string>, index: number): EcdictRow =>
+		(record: unknown, index: number): EcdictRow =>
 			parseEcdictRow(record, index + 2),
 	);
 }
@@ -158,26 +120,18 @@ export function parseExchangeMap(
 
 	for (const part of parts) {
 		const [rawCode, rawValue] = part.split(":", 2);
-		const code = rawCode as ExchangeCode | undefined;
-		const normalizedValue = rawValue?.trim();
+		const codeResult = ExchangeCodeSchema.safeParse(rawCode);
 
-		if (!code) {
+		if (!codeResult.success || rawValue === undefined) {
 			throw new Error(`Malformed exchange value for ${word}: ${exchange}`);
 		}
 
-		if (!EXCHANGE_CODES.includes(code)) {
-			throw new Error(`Malformed exchange value for ${word}: ${exchange}`);
-		}
-
-		if (rawValue === undefined) {
-			throw new Error(`Malformed exchange value for ${word}: ${exchange}`);
-		}
-
+		const normalizedValue = rawValue.trim();
 		if (!normalizedValue) {
 			continue;
 		}
 
-		mappings[code] = normalizedValue;
+		mappings[codeResult.data] = normalizedValue;
 	}
 
 	return mappings;

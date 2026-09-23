@@ -75,15 +75,18 @@ describe("createBrowserStorageSettingsStorage", () => {
 			endpoint: "",
 			model: "gpt-4.1-mini",
 		},
-	] satisfies readonly LlmSettings[])("writes valid settings back through browser.storage.local.set", async (storedSettings) => {
-		const storage = createBrowserStorageSettingsStorage();
+	] satisfies readonly LlmSettings[])(
+		"writes valid settings back through browser.storage.local.set",
+		async (storedSettings) => {
+			const storage = createBrowserStorageSettingsStorage();
 
-		await storage.writeSettings(storedSettings);
+			await storage.writeSettings(storedSettings);
 
-		expect(setStorageMock).toHaveBeenCalledWith({
-			[STORAGE_KEY]: storedSettings,
-		});
-	});
+			expect(setStorageMock).toHaveBeenCalledWith({
+				[STORAGE_KEY]: storedSettings,
+			});
+		},
+	);
 
 	it("throws before writing invalid settings to browser storage", async () => {
 		const storage = createBrowserStorageSettingsStorage();

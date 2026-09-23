@@ -21,7 +21,7 @@ function createRetryPolicy(
 	return createExponentialRetryPolicy({
 		baseDelayMs: 1000,
 		maxAttempts: 3,
-		maxDelayMs: 30000,
+		maxDelayMs: 30_000,
 		now: (): number => clock.current,
 		random: (): number => 0.5,
 		sleep: async (ms: number): Promise<void> => {

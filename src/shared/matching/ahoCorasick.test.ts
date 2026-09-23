@@ -97,7 +97,7 @@ it("does not match across apostrophe and hyphen boundaries", () => {
 it("stays within the legacy matcher latency budget", () => {
 	const random = createDeterministicRandom(42);
 	const patterns: PatternRef[] = [];
-	for (let index = 0; index < 3_000; index += 1) {
+	for (let index = 0; index < 3000; index += 1) {
 		patterns.push({
 			lemma: `lemma-${index}`,
 			surface: createRandomWord(8, random),
@@ -110,7 +110,7 @@ it("stays within the legacy matcher latency budget", () => {
 
 	expect(buildDuration).toBeLessThan(50);
 
-	const scanText = Array.from({ length: 1_112 }, () =>
+	const scanText = Array.from({ length: 1112 }, () =>
 		createRandomWord(8, random),
 	).join(" ");
 	expect(scanText.length).toBeGreaterThanOrEqual(10_000);

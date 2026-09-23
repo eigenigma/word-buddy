@@ -83,14 +83,17 @@ describe("createBrowserStorageSiteControl", () => {
 	it.each([
 		["uppercase host", ["EXAMPLE.COM"]],
 		["non-canonical www host", ["www.example.com"]],
-	])("throws before writing invalid state to browser storage for %s", async (_name, blockedHosts) => {
-		const storage = createBrowserStorageSiteControl();
+	])(
+		"throws before writing invalid state to browser storage for %s",
+		async (_name, blockedHosts) => {
+			const storage = createBrowserStorageSiteControl();
 
-		await expect(
-			storage.writeSiteControl({
-				blockedHosts: blockedHosts,
-			}),
-		).rejects.toThrow("Invalid site control state for storage write");
-		expect(setStorageMock).not.toHaveBeenCalled();
-	});
+			await expect(
+				storage.writeSiteControl({
+					blockedHosts: blockedHosts,
+				}),
+			).rejects.toThrow("Invalid site control state for storage write");
+			expect(setStorageMock).not.toHaveBeenCalled();
+		},
+	);
 });

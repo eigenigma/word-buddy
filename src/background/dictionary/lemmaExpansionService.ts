@@ -64,11 +64,9 @@ export function createLemmaExpansionService(
 				return Object.freeze({});
 			}
 
-			if (reverseIndex === null) {
-				reverseIndex = buildReverseIndex(
-					await dependencies.repository.listAll(),
-				);
-			}
+			reverseIndex ??= buildReverseIndex(
+				await dependencies.repository.listAll(),
+			);
 
 			return buildExpansionResult(lemmas, reverseIndex);
 		},

@@ -62,7 +62,7 @@ describe("createTokenBucketRateLimiter", () => {
 	it("treats backward clock jumps as zero elapsed refill time", async () => {
 		const harness = createHarness({
 			capacity: 1,
-			now: 1_000,
+			now: 1000,
 			refillPerSecond: 1,
 		});
 

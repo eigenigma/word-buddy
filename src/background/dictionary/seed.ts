@@ -220,16 +220,14 @@ export function createDictionarySeedService(
 	};
 
 	const ensureSeeded = (): Promise<void> => {
-		if (runtimeState.seedPromise === null) {
-			runtimeState.seedPromise = performSeed(dependencies, runtimeState).catch(
-				(error: unknown): never => {
-					runtimeState.lastAction = null;
-					runtimeState.lastError = toErrorMessage(error);
-					runtimeState.seedPromise = null;
-					throw error;
-				},
-			);
-		}
+		runtimeState.seedPromise ??= performSeed(dependencies, runtimeState).catch(
+			(error: unknown): never => {
+				runtimeState.lastAction = null;
+				runtimeState.lastError = toErrorMessage(error);
+				runtimeState.seedPromise = null;
+				throw error;
+			},
+		);
 
 		return runtimeState.seedPromise;
 	};

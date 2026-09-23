@@ -1,10 +1,5 @@
 import { isSkippedElement } from "./skipPredicate";
 
-export interface DomTextCollection {
-	readonly paragraphText: string;
-	readonly textNodes: readonly Text[];
-}
-
 function shouldRejectTextNode(textNode: Text, block: Element): boolean {
 	if (textNode.data.length === 0) {
 		return true;
@@ -30,12 +25,9 @@ function shouldRejectTextNode(textNode: Text, block: Element): boolean {
 	return false;
 }
 
-export function collectBlockTextNodes(block: Element): DomTextCollection {
+export function collectBlockTextNodes(block: Element): readonly Text[] {
 	if (isSkippedElement(block) || block.closest("[data-wb-injected]")) {
-		return {
-			paragraphText: "",
-			textNodes: [],
-		};
+		return [];
 	}
 
 	const documentRef = block.ownerDocument;
@@ -60,8 +52,5 @@ export function collectBlockTextNodes(block: Element): DomTextCollection {
 		currentNode = treeWalker.nextNode();
 	}
 
-	return {
-		paragraphText: block.textContent?.trim() ?? "",
-		textNodes: textNodes,
-	};
+	return textNodes;
 }

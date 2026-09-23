@@ -81,7 +81,7 @@ function collectBlockMatches(
 	block: HTMLElement,
 	matcher: AhoCorasickMatcher,
 ): BlockMatchCollection {
-	const { textNodes } = collectBlockTextNodes(block);
+	const textNodes = collectBlockTextNodes(block);
 	const matchesByNode = new Map<Text, readonly AhoCorasickMatch[]>();
 	const lemmas = new Set<string>();
 

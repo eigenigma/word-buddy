@@ -5,7 +5,7 @@ export interface InvalidationController {
 
 export interface InvalidationControllerDependencies {
 	readonly rebuildMatcher: () => Promise<void>;
-	readonly rescanDocument: () => Promise<void>;
+	readonly rescanDocument: () => void;
 }
 
 export function createInvalidationController(
@@ -16,19 +16,20 @@ export function createInvalidationController(
 	let pending = false;
 
 	const runInvalidation = async (): Promise<void> => {
-		do {
-			pending = false;
-			if (disposed) {
-				return;
-			}
+		pending = false;
+		if (disposed) {
+			return;
+		}
 
-			await dependencies.rebuildMatcher();
-			if (disposed) {
-				return;
-			}
+		await dependencies.rebuildMatcher();
+		if (disposed) {
+			return;
+		}
 
-			await dependencies.rescanDocument();
-		} while (!disposed && pending);
+		dependencies.rescanDocument();
+		if (pending) {
+			await runInvalidation();
+		}
 	};
 
 	return {

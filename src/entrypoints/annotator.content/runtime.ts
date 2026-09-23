@@ -101,7 +101,7 @@ export function createAnnotatorRuntime(
 	};
 
 	const observer = createInitialObserver(scheduleBlockAnnotate);
-	const rescanDocument = async (): Promise<void> => {
+	const rescanDocument = (): void => {
 		// Rescans only see surviving raw text nodes because [data-wb-injected]
 		// subtrees are skipped by the walker, so existing annotations stay intact.
 		for (const block of findCandidateBlocks(document)) {

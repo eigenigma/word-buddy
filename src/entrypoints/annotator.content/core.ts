@@ -145,6 +145,7 @@ export async function annotateBlock(
 			return;
 		}
 
+		// biome-ignore lint/nursery/useDomNodeTextContent: the LLM must only see rendered text; textContent leaks hidden and script content off the page
 		const paragraph = block.innerText.trim();
 		if (paragraph.length === 0) {
 			return;

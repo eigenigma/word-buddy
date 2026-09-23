@@ -53,7 +53,7 @@ export function LemmaCell({
 }: LemmaCellProps): JSX.Element {
 	if (isEditing) {
 		return (
-			<td className="px-4 py-4">
+			<td className="p-4">
 				<div className="font-semibold text-slate-900 text-sm">
 					{entry.lemma}
 				</div>
@@ -68,7 +68,7 @@ export function LemmaCell({
 	}
 
 	return (
-		<td className="px-4 py-4">
+		<td className="p-4">
 			<div className="font-semibold text-slate-900 text-sm">{entry.lemma}</div>
 			{entry.original === entry.lemma ? null : (
 				<p className="mt-1 text-slate-500 text-xs">{entry.original}</p>
@@ -84,14 +84,14 @@ export function SourceCell({
 }): JSX.Element {
 	if (entry.sourceUrl === null) {
 		return (
-			<td className="px-4 py-4 text-sm">
+			<td className="p-4 text-sm">
 				<span className="text-slate-400">{EMPTY_VALUE}</span>
 			</td>
 		);
 	}
 
 	return (
-		<td className="px-4 py-4 text-sm">
+		<td className="p-4 text-sm">
 			<a
 				className="font-medium text-sky-700 transition hover:text-sky-900 hover:underline"
 				href={entry.sourceUrl}
@@ -113,7 +113,7 @@ export function ContextCell({
 }: ContextCellProps): JSX.Element {
 	if (isEditing) {
 		return (
-			<td className="px-4 py-4">
+			<td className="p-4">
 				<textarea
 					className={TEXTAREA_CLASS_NAME}
 					onInput={onContextInput}
@@ -125,14 +125,14 @@ export function ContextCell({
 
 	if (entry.context === null) {
 		return (
-			<td className="px-4 py-4">
+			<td className="p-4">
 				<span className="text-slate-400">{EMPTY_VALUE}</span>
 			</td>
 		);
 	}
 
 	return (
-		<td className="px-4 py-4">
+		<td className="p-4">
 			<p
 				className="line-clamp-2 max-w-xl text-slate-600 text-sm leading-6"
 				title={entry.context}
@@ -155,7 +155,7 @@ export function ActionCell({
 }: ActionCellProps): JSX.Element {
 	if (isEditing) {
 		return (
-			<td className="px-4 py-4 text-right">
+			<td className="p-4 text-right">
 				<div className="flex items-center justify-end gap-2">
 					<button
 						className="rounded-lg bg-slate-900 px-3 py-2 font-medium text-sm text-white transition hover:bg-slate-800 disabled:border disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
@@ -184,7 +184,7 @@ export function ActionCell({
 
 	if (isPendingDeletion) {
 		return (
-			<td className="px-4 py-4 text-right">
+			<td className="p-4 text-right">
 				<div className="flex items-center justify-end gap-2">
 					<button
 						className="rounded-lg bg-rose-600 px-3 py-2 font-medium text-sm text-white transition hover:bg-rose-700"
@@ -213,7 +213,7 @@ export function ActionCell({
 	}
 
 	return (
-		<td className="px-4 py-4 text-right">
+		<td className="p-4 text-right">
 			<div className="flex items-center justify-end gap-2">
 				<button
 					className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-medium text-slate-700 text-sm transition hover:bg-slate-50"

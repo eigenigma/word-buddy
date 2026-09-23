@@ -117,7 +117,7 @@ function BlockedHostList({
 }: BlockedHostListProps): JSX.Element {
 	if (blockedHosts.length === 0) {
 		return (
-			<p className="rounded-xl border border-slate-200 border-dashed px-4 py-4 text-slate-500 text-sm">
+			<p className="rounded-xl border border-slate-200 border-dashed p-4 text-slate-500 text-sm">
 				No blocked hosts yet.
 			</p>
 		);

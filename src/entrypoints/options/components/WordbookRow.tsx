@@ -135,7 +135,7 @@ export function WordbookRow({ entry }: WordbookRowProps): JSX.Element {
 				isEditing={state.isEditing}
 				onOriginalInput={state.onOriginalInput}
 			/>
-			<td className="px-4 py-4 text-slate-600 text-sm">
+			<td className="p-4 text-slate-600 text-sm">
 				{formatTimestamp(entry.addedAt)}
 			</td>
 			<SourceCell entry={entry} />

@@ -9,11 +9,11 @@ import type {
 } from "@/shared/dictionary/types";
 import { sha256HexOfText } from "@/shared/utils/hash";
 
-const LEMMA_ASSET_PATH = "/data/lemma-index.json" as PublicPath;
-const META_ASSET_PATH = "/data/dict-meta.json" as PublicPath;
+const LEMMA_ASSET_PATH: PublicPath = "/data/lemma-index.json";
+const META_ASSET_PATH: PublicPath = "/data/dict-meta.json";
 
 function dictShardAssetPath(index: number): PublicPath {
-	return `/data/dict-${index}.json` as PublicPath;
+	return `/data/dict-${index}.json`;
 }
 
 export interface DictionarySeedManifest {

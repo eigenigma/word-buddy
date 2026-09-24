@@ -15,6 +15,9 @@ function isObjectWebAccessibleResources(
 export default defineConfig({
 	srcDir: "src",
 	modules: ["@wxt-dev/unocss"],
+	unocss: {
+		excludeEntrypoints: ["annotator", "background"],
+	},
 	hooks: {
 		"build:manifestGenerated": (
 			wxt: Wxt,

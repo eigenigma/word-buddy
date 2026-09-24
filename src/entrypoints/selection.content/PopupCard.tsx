@@ -109,7 +109,7 @@ export function PopupCard({
 					) : null}
 				</div>
 				<button
-					className="rounded-md px-2 py-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+					className="rounded-md px-2 py-1 text-slate-400 text-sm transition hover:bg-slate-100 hover:text-slate-700"
 					onClick={onClose}
 					type="button"
 				>

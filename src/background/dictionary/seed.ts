@@ -110,8 +110,8 @@ async function performSeed(
 	dependencies: DictionarySeedServiceDependencies,
 	runtimeState: DictionarySeedRuntimeState,
 ): Promise<void> {
-	const manifest = await dependencies.loadManifest();
-	const [tablesPopulated, seedState] = await Promise.all([
+	const [manifest, tablesPopulated, seedState] = await Promise.all([
+		dependencies.loadManifest(),
 		dependencies.repository.isPopulated(),
 		dependencies.storage.readState(),
 	]);

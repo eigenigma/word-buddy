@@ -12,6 +12,13 @@ import {
 export const CSS_VARIABLE_PREFIX = "word-buddy-";
 
 export default defineConfig({
+	content: {
+		pipeline: {
+			// Replaces UnoCSS's default filter rather than extending it, so .tsx
+			// must stay listed next to the plain .ts modules that hold classes.
+			include: ["src/**/*.{ts,tsx}"],
+		},
+	},
 	presets: [
 		presetWind4({
 			variablePrefix: CSS_VARIABLE_PREFIX,

@@ -1,5 +1,6 @@
-import { assert, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { staticDictionaryDb } from "@/background/dictionary/database";
 import type { LemmaExpansionServiceDependencies } from "@/background/dictionary/lemmaExpansionService";
 import type { DictionaryQueryServiceDependencies } from "@/background/dictionary/queryService";
 import type { DictionarySeedServiceDependencies } from "@/background/dictionary/seed";
@@ -26,9 +27,14 @@ const TEST_DICT_ENTRY: DictionaryEntry = {
 	word: "agenda",
 };
 
-const TEST_LEMMA_ENTRY: LemmaEntry = {
+const AGENDA_LEMMA_ENTRY: LemmaEntry = {
 	lemma: "agenda",
 	surface: "agendas",
+};
+
+const RUN_LEMMA_ENTRY: LemmaEntry = {
+	lemma: "run",
+	surface: "ran",
 };
 
 const {
@@ -39,7 +45,6 @@ const {
 	createDictionaryQueryServiceMock,
 	createDictionarySeedServiceMock,
 	createLemmaExpansionServiceMock,
-	staticDictionaryDbMock,
 } = vi.hoisted(() => ({
 	DICTIONARY_QUERY_SERVICE: { id: "dictionary-query-service" },
 	DICTIONARY_SEED_SERVICE: {
@@ -54,37 +59,11 @@ const {
 		vi.fn<(dependencies: DictionarySeedServiceDependencies) => unknown>(),
 	createLemmaExpansionServiceMock:
 		vi.fn<(dependencies: LemmaExpansionServiceDependencies) => unknown>(),
-	staticDictionaryDbMock: {
-		dict: {
-			bulkPut: vi.fn(),
-			clear: vi.fn(),
-			count: vi.fn(),
-			get: vi.fn(),
-		},
-		lemma: {
-			bulkPut: vi.fn(),
-			clear: vi.fn(),
-			count: vi.fn(),
-			get: vi.fn(),
-			toArray: vi.fn(),
-		},
-		transaction: vi.fn(async (...args: unknown[]): Promise<unknown> => {
-			const callback = args.at(-1);
-			if (typeof callback !== "function") {
-				throw new Error("Missing transaction callback");
-			}
-			return await callback();
-		}),
-	},
 }));
 
 vi.mock("@/background/dictionary/assets", () => ({
 	loadDictionarySeedAssets: vi.fn(),
 	loadDictionarySeedManifest: vi.fn(),
-}));
-vi.mock("@/background/dictionary/database", () => ({
-	STATIC_DICTIONARY_DB_SCHEMA_VERSION: 1,
-	staticDictionaryDb: staticDictionaryDbMock,
 }));
 vi.mock("@/background/dictionary/lemmaExpansionService", () => ({
 	createLemmaExpansionService: createLemmaExpansionServiceMock,
@@ -98,28 +77,38 @@ vi.mock("@/background/dictionary/seed", () => ({
 	createDictionarySeedService: createDictionarySeedServiceMock,
 }));
 
-function resetDictionaryMocks(): void {
-	createDictionaryQueryServiceMock.mockReset();
-	createDictionarySeedServiceMock.mockReset();
-	createLemmaExpansionServiceMock.mockReset();
-	DICTIONARY_SEED_SERVICE.ensureSeeded.mockReset();
-	staticDictionaryDbMock.dict.bulkPut.mockReset();
-	staticDictionaryDbMock.dict.clear.mockReset();
-	staticDictionaryDbMock.dict.count.mockReset();
-	staticDictionaryDbMock.dict.get.mockReset();
-	staticDictionaryDbMock.lemma.bulkPut.mockReset();
-	staticDictionaryDbMock.lemma.clear.mockReset();
-	staticDictionaryDbMock.lemma.count.mockReset();
-	staticDictionaryDbMock.lemma.get.mockReset();
-	staticDictionaryDbMock.lemma.toArray.mockReset();
-	staticDictionaryDbMock.transaction.mockClear();
+function captureDependencies(): {
+	readonly lemmaExpansion: LemmaExpansionServiceDependencies;
+	readonly query: DictionaryQueryServiceDependencies;
+	readonly seed: DictionarySeedServiceDependencies;
+} {
+	createDictionaryBrowserAdapter();
+	const query = createDictionaryQueryServiceMock.mock.lastCall?.[0];
+	const lemmaExpansion = createLemmaExpansionServiceMock.mock.lastCall?.[0];
+	const seed = createDictionarySeedServiceMock.mock.lastCall?.[0];
+	if (
+		query === undefined ||
+		lemmaExpansion === undefined ||
+		seed === undefined
+	) {
+		throw new Error("createDictionaryBrowserAdapter built no services");
+	}
+	return { lemmaExpansion: lemmaExpansion, query: query, seed: seed };
 }
 
-beforeEach(() => {
-	resetDictionaryMocks();
+beforeEach(async () => {
+	vi.resetAllMocks();
 	createDictionaryQueryServiceMock.mockReturnValue(DICTIONARY_QUERY_SERVICE);
 	createDictionarySeedServiceMock.mockReturnValue(DICTIONARY_SEED_SERVICE);
 	createLemmaExpansionServiceMock.mockReturnValue(LEMMA_EXPANSION_SERVICE);
+	await Promise.all([
+		staticDictionaryDb.dict.clear(),
+		staticDictionaryDb.lemma.clear(),
+	]);
+});
+
+afterEach(() => {
+	vi.restoreAllMocks();
 });
 
 describe("createDictionaryBrowserAdapter", () => {
@@ -135,49 +124,54 @@ describe("createDictionaryBrowserAdapter", () => {
 });
 
 describe("seeded dictionary reads", () => {
-	function captureReadDependencies(): {
-		readonly lemmaExpansion: LemmaExpansionServiceDependencies;
-		readonly query: DictionaryQueryServiceDependencies;
-	} {
-		createDictionaryBrowserAdapter();
-		const query = createDictionaryQueryServiceMock.mock.lastCall?.[0];
-		const lemmaExpansion = createLemmaExpansionServiceMock.mock.lastCall?.[0];
-		if (query === undefined || lemmaExpansion === undefined) {
-			throw new Error("createDictionaryBrowserAdapter built no read services");
-		}
-		return { lemmaExpansion: lemmaExpansion, query: query };
+	function spyOnStaticReads(): readonly unknown[] {
+		return [
+			vi.spyOn(staticDictionaryDb.dict, "get"),
+			vi.spyOn(staticDictionaryDb.lemma, "get"),
+			vi.spyOn(staticDictionaryDb.lemma, "toArray"),
+		];
 	}
+
+	beforeEach(async () => {
+		await staticDictionaryDb.dict.put(TEST_DICT_ENTRY);
+		await staticDictionaryDb.lemma.bulkPut([
+			AGENDA_LEMMA_ENTRY,
+			RUN_LEMMA_ENTRY,
+		]);
+	});
 
 	it("touch staticDictionaryDb only after the adapter's seed service finishes", async () => {
 		const seed = Promise.withResolvers<void>();
 		DICTIONARY_SEED_SERVICE.ensureSeeded.mockReturnValue(seed.promise);
-		staticDictionaryDbMock.dict.get.mockResolvedValue(TEST_DICT_ENTRY);
-		staticDictionaryDbMock.lemma.get.mockResolvedValue({ lemma: "agenda" });
-		staticDictionaryDbMock.lemma.toArray.mockResolvedValue([TEST_LEMMA_ENTRY]);
-		const { lemmaExpansion, query } = captureReadDependencies();
+		const staticReads = spyOnStaticReads();
+		const { lemmaExpansion, query } = captureDependencies();
 
 		const pendingEntry = query.dictRepository.getByWord("agenda");
 		const pendingLemma = query.lemmaRepository.getBySurface("agendas");
 		const pendingRows = lemmaExpansion.repository.listAll();
 		await sleep(0);
-		expect(staticDictionaryDbMock.dict.get).not.toHaveBeenCalled();
-		expect(staticDictionaryDbMock.lemma.get).not.toHaveBeenCalled();
-		expect(staticDictionaryDbMock.lemma.toArray).not.toHaveBeenCalled();
+		for (const staticRead of staticReads) {
+			expect(staticRead).not.toHaveBeenCalled();
+		}
 
 		seed.resolve();
 		await expect(pendingEntry).resolves.toEqual(TEST_DICT_ENTRY);
 		await expect(pendingLemma).resolves.toBe("agenda");
-		await expect(pendingRows).resolves.toEqual([TEST_LEMMA_ENTRY]);
-		expect(staticDictionaryDbMock.dict.get).toHaveBeenCalledWith("agenda");
-		expect(staticDictionaryDbMock.lemma.get).toHaveBeenCalledWith("agendas");
-		expect(staticDictionaryDbMock.lemma.toArray).toHaveBeenCalledTimes(1);
+		await expect(pendingRows).resolves.toEqual([
+			AGENDA_LEMMA_ENTRY,
+			RUN_LEMMA_ENTRY,
+		]);
+		for (const staticRead of staticReads) {
+			expect(staticRead).toHaveBeenCalled();
+		}
 		expect(createDictionarySeedServiceMock).toHaveBeenCalledTimes(1);
 	});
 
 	it("reject with the seed error without touching staticDictionaryDb", async () => {
 		const seedError = new Error("seed failed");
 		DICTIONARY_SEED_SERVICE.ensureSeeded.mockRejectedValue(seedError);
-		const { lemmaExpansion, query } = captureReadDependencies();
+		const staticReads = spyOnStaticReads();
+		const { lemmaExpansion, query } = captureDependencies();
 
 		await expect(query.dictRepository.getByWord("agenda")).rejects.toBe(
 			seedError,
@@ -186,34 +180,29 @@ describe("seeded dictionary reads", () => {
 			seedError,
 		);
 		await expect(lemmaExpansion.repository.listAll()).rejects.toBe(seedError);
-		expect(staticDictionaryDbMock.dict.get).not.toHaveBeenCalled();
-		expect(staticDictionaryDbMock.lemma.get).not.toHaveBeenCalled();
-		expect(staticDictionaryDbMock.lemma.toArray).not.toHaveBeenCalled();
+		for (const staticRead of staticReads) {
+			expect(staticRead).not.toHaveBeenCalled();
+		}
 	});
 });
 
 describe("dictionary seed wiring", () => {
-	it("injects browser seed storage and routes repository writes through staticDictionaryDb transactions", async () => {
-		staticDictionaryDbMock.dict.count.mockResolvedValue(1);
-		staticDictionaryDbMock.lemma.count.mockResolvedValue(2);
-		createDictionaryBrowserAdapter();
+	it("injects browser seed storage", () => {
+		const { seed } = captureDependencies();
 
-		const dependencies = createDictionarySeedServiceMock.mock.lastCall?.[0];
-		assert.isDefined(dependencies);
+		expect(seed.storage).toBe(DICTIONARY_SEED_STORAGE);
+	});
 
-		expect(dependencies.storage).toBe(DICTIONARY_SEED_STORAGE);
-		await dependencies.repository.clearAll();
-		await expect(dependencies.repository.countDictEntries()).resolves.toBe(1);
-		await expect(dependencies.repository.countLemmaEntries()).resolves.toBe(2);
-		await dependencies.repository.putDictEntries([TEST_DICT_ENTRY]);
-		await dependencies.repository.putLemmaEntries([TEST_LEMMA_ENTRY]);
-		expect(staticDictionaryDbMock.dict.clear).toHaveBeenCalledTimes(1);
-		expect(staticDictionaryDbMock.lemma.clear).toHaveBeenCalledTimes(1);
-		expect(staticDictionaryDbMock.dict.bulkPut).toHaveBeenCalledWith([
-			TEST_DICT_ENTRY,
-		]);
-		expect(staticDictionaryDbMock.lemma.bulkPut).toHaveBeenCalledWith([
-			TEST_LEMMA_ENTRY,
-		]);
+	it("writes, counts, and clears rows in staticDictionaryDb", async () => {
+		const { repository } = captureDependencies().seed;
+
+		await repository.putDictEntries([TEST_DICT_ENTRY]);
+		await repository.putLemmaEntries([AGENDA_LEMMA_ENTRY, RUN_LEMMA_ENTRY]);
+		await expect(repository.countDictEntries()).resolves.toBe(1);
+		await expect(repository.countLemmaEntries()).resolves.toBe(2);
+
+		await repository.clearAll();
+		await expect(repository.countDictEntries()).resolves.toBe(0);
+		await expect(repository.countLemmaEntries()).resolves.toBe(0);
 	});
 });

@@ -4,6 +4,7 @@ import {
 } from "@/background/dictionary/assets";
 import {
 	STATIC_DICTIONARY_DB_SCHEMA_VERSION,
+	type StaticDictionaryDatabase,
 	staticDictionaryDb,
 } from "@/background/dictionary/database";
 import {
@@ -26,6 +27,8 @@ interface DictionaryBrowserAdapter {
 	readonly dictionarySeedService: DictionarySeedService;
 	readonly lemmaExpansionService: LemmaExpansionService;
 }
+
+type GetSeededDictionary = () => Promise<StaticDictionaryDatabase>;
 
 function createDictionaryQueryBrowserAdapter(): DictionaryQueryService {
 	return createDictionaryQueryService({
@@ -78,13 +81,13 @@ function createDictionarySeedBrowserAdapter(): DictionarySeedService {
 }
 
 function createLemmaExpansionBrowserAdapter(
-	dictionarySeedService: DictionarySeedService,
+	getSeededDictionary: GetSeededDictionary,
 ): LemmaExpansionService {
 	return createLemmaExpansionService({
 		repository: {
 			listAll: async () => {
-				await dictionarySeedService.ensureSeeded();
-				return await staticDictionaryDb.lemma.toArray();
+				const dictionary = await getSeededDictionary();
+				return await dictionary.lemma.toArray();
 			},
 		},
 	});
@@ -92,12 +95,15 @@ function createLemmaExpansionBrowserAdapter(
 
 export function createDictionaryBrowserAdapter(): DictionaryBrowserAdapter {
 	const dictionarySeedService = createDictionarySeedBrowserAdapter();
+	const getSeededDictionary: GetSeededDictionary = async () => {
+		await dictionarySeedService.ensureSeeded();
+		return staticDictionaryDb;
+	};
 
 	return {
 		dictionaryQueryService: createDictionaryQueryBrowserAdapter(),
 		dictionarySeedService: dictionarySeedService,
-		lemmaExpansionService: createLemmaExpansionBrowserAdapter(
-			dictionarySeedService,
-		),
+		lemmaExpansionService:
+			createLemmaExpansionBrowserAdapter(getSeededDictionary),
 	};
 }

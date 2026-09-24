@@ -92,9 +92,9 @@ function createLemmaExpansionBrowserAdapter(
 ): LemmaExpansionService {
 	return createLemmaExpansionService({
 		repository: {
-			listAll: async () => {
+			listByLemmas: async (lemmas: readonly string[]) => {
 				const dictionary = await getSeededDictionary();
-				return await dictionary.lemma.toArray();
+				return await dictionary.lemma.where("lemma").anyOf(lemmas).toArray();
 			},
 		},
 	});

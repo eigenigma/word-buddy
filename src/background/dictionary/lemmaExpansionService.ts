@@ -1,7 +1,9 @@
+import type { LemmaEntry } from "@/shared/dictionary/types";
+
 export interface LemmaReverseRepository {
-	readonly listAll: () => Promise<
-		readonly { lemma: string; surface: string }[]
-	>;
+	readonly listByLemmas: (
+		lemmas: readonly string[],
+	) => Promise<readonly LemmaEntry[]>;
 }
 
 export interface LemmaExpansionServiceDependencies {
@@ -14,40 +16,21 @@ export interface LemmaExpansionService {
 	) => Promise<Readonly<Record<string, readonly string[]>>>;
 }
 
-type ReverseIndex = ReadonlyMap<string, readonly string[]>;
-
-function buildReverseIndex(
-	entries: readonly { lemma: string; surface: string }[],
-): ReverseIndex {
-	const mutableIndex = new Map<string, Set<string>>();
-
-	for (const entry of entries) {
-		const surfaces = mutableIndex.get(entry.lemma);
-		if (surfaces) {
-			surfaces.add(entry.surface);
-			continue;
-		}
-
-		mutableIndex.set(entry.lemma, new Set<string>([entry.surface]));
-	}
-
-	const reverseIndex = new Map<string, readonly string[]>();
-	for (const [lemma, surfaces] of mutableIndex) {
-		surfaces.add(lemma);
-		reverseIndex.set(lemma, Object.freeze(Array.from(surfaces)));
-	}
-
-	return reverseIndex;
-}
-
 function buildExpansionResult(
 	lemmas: readonly string[],
-	reverseIndex: ReverseIndex,
+	entries: readonly LemmaEntry[],
 ): Readonly<Record<string, readonly string[]>> {
-	const expansions: Record<string, readonly string[]> = {};
+	const surfacesByLemma = new Map(
+		lemmas.map((lemma) => [lemma, new Set<string>()]),
+	);
+	for (const entry of entries) {
+		surfacesByLemma.get(entry.lemma)?.add(entry.surface);
+	}
 
-	for (const lemma of lemmas) {
-		expansions[lemma] = reverseIndex.get(lemma) ?? Object.freeze([lemma]);
+	const expansions: Record<string, readonly string[]> = {};
+	for (const [lemma, surfaces] of surfacesByLemma) {
+		surfaces.add(lemma);
+		expansions[lemma] = Object.freeze(Array.from(surfaces));
 	}
 
 	return Object.freeze(expansions);
@@ -56,8 +39,6 @@ function buildExpansionResult(
 export function createLemmaExpansionService(
 	dependencies: LemmaExpansionServiceDependencies,
 ): LemmaExpansionService {
-	let reverseIndexPromise: Promise<ReverseIndex> | null = null;
-
 	return {
 		expandLemmas: async (
 			lemmas: readonly string[],
@@ -66,15 +47,8 @@ export function createLemmaExpansionService(
 				return Object.freeze({});
 			}
 
-			reverseIndexPromise ??= dependencies.repository
-				.listAll()
-				.then(buildReverseIndex)
-				.catch((error: unknown): never => {
-					reverseIndexPromise = null;
-					throw error;
-				});
-
-			return buildExpansionResult(lemmas, await reverseIndexPromise);
+			const entries = await dependencies.repository.listByLemmas(lemmas);
+			return buildExpansionResult(lemmas, entries);
 		},
 	};
 }

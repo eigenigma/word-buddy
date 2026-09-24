@@ -128,7 +128,7 @@ describe("seeded dictionary reads", () => {
 		return [
 			vi.spyOn(staticDictionaryDb.dict, "get"),
 			vi.spyOn(staticDictionaryDb.lemma, "get"),
-			vi.spyOn(staticDictionaryDb.lemma, "toArray"),
+			vi.spyOn(staticDictionaryDb.lemma, "where"),
 		];
 	}
 
@@ -148,7 +148,7 @@ describe("seeded dictionary reads", () => {
 
 		const pendingEntry = query.dictRepository.getByWord("agenda");
 		const pendingLemma = query.lemmaRepository.getBySurface("agendas");
-		const pendingRows = lemmaExpansion.repository.listAll();
+		const pendingRows = lemmaExpansion.repository.listByLemmas(["agenda"]);
 		await sleep(0);
 		for (const staticRead of staticReads) {
 			expect(staticRead).not.toHaveBeenCalled();
@@ -157,10 +157,7 @@ describe("seeded dictionary reads", () => {
 		seed.resolve();
 		await expect(pendingEntry).resolves.toEqual(TEST_DICT_ENTRY);
 		await expect(pendingLemma).resolves.toBe("agenda");
-		await expect(pendingRows).resolves.toEqual([
-			AGENDA_LEMMA_ENTRY,
-			RUN_LEMMA_ENTRY,
-		]);
+		await expect(pendingRows).resolves.toEqual([AGENDA_LEMMA_ENTRY]);
 		for (const staticRead of staticReads) {
 			expect(staticRead).toHaveBeenCalled();
 		}
@@ -179,7 +176,9 @@ describe("seeded dictionary reads", () => {
 		await expect(query.lemmaRepository.getBySurface("agendas")).rejects.toBe(
 			seedError,
 		);
-		await expect(lemmaExpansion.repository.listAll()).rejects.toBe(seedError);
+		await expect(
+			lemmaExpansion.repository.listByLemmas(["agenda"]),
+		).rejects.toBe(seedError);
 		for (const staticRead of staticReads) {
 			expect(staticRead).not.toHaveBeenCalled();
 		}

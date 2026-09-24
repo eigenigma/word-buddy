@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
+import { globSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { createGenerator } from "unocss";
-import { describe, expect, it } from "vitest";
+import UnoCSS, { type UnocssVitePluginAPI } from "unocss/vite";
+import { assert, describe, expect, it } from "vitest";
 import { splitShadowRootCss } from "wxt/utils/split-shadow-root-css";
 
 import unoConfig, { CSS_VARIABLE_PREFIX } from "./uno.config";
@@ -90,5 +94,25 @@ describe("uno.config breakpoints", () => {
 		expect(
 			shadowRules.filter(isMediaRule).map((rule) => rule.media.mediaText),
 		).toContain("(min-width: 40rem)");
+	});
+});
+
+const sourceModules = globSync("src/**/*.{ts,tsx}", {
+	exclude: ["**/*.test.{ts,tsx}"],
+}).map((path) => resolve(path));
+
+// createGenerator ignores content.pipeline, so this goes through the Vite
+// plugin that WXT builds with, which loads uno.config.ts the same way.
+describe("uno.config content pipeline", () => {
+	it("scans every source module, plain .ts included", async () => {
+		const api: UnocssVitePluginAPI | undefined = UnoCSS().find(
+			(plugin) => plugin.name === "unocss:api",
+		)?.api;
+		assert.isDefined(api);
+		const context = api.getContext();
+		await context.ready;
+
+		expect(sourceModules).not.toHaveLength(0);
+		expect(sourceModules.filter((id) => !context.filter("", id))).toEqual([]);
 	});
 });

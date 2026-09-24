@@ -23,6 +23,7 @@ export interface DictionarySeedRepository {
 	readonly clearAll: () => Promise<void>;
 	readonly countDictEntries: () => Promise<number>;
 	readonly countLemmaEntries: () => Promise<number>;
+	readonly isPopulated: () => Promise<boolean>;
 	readonly putDictEntries: (
 		entries: readonly DictionaryEntry[],
 	) => Promise<void>;
@@ -91,43 +92,6 @@ function matchesDictionarySeedState(
 	);
 }
 
-async function readSeedSnapshot(
-	dependencies: DictionarySeedServiceDependencies,
-): Promise<{
-	readonly dictCount: number;
-	readonly lemmaCount: number;
-	readonly seedState: DictionarySeedState | null;
-}> {
-	const [dictCount, lemmaCount, seedState] = await Promise.all([
-		dependencies.repository.countDictEntries(),
-		dependencies.repository.countLemmaEntries(),
-		dependencies.storage.readState(),
-	]);
-
-	return {
-		dictCount: dictCount,
-		lemmaCount: lemmaCount,
-		seedState: seedState,
-	};
-}
-
-async function shouldSeedStaticDictionary(
-	dependencies: DictionarySeedServiceDependencies,
-	manifest: DictionarySeedManifest,
-): Promise<boolean> {
-	const snapshot = await readSeedSnapshot(dependencies);
-	const tablesPopulated = snapshot.dictCount > 0 && snapshot.lemmaCount > 0;
-	if (!tablesPopulated || snapshot.seedState === null) {
-		return true;
-	}
-
-	return !matchesDictionarySeedState(
-		snapshot.seedState,
-		manifest,
-		dependencies.dbSchemaVersion,
-	);
-}
-
 async function seedEntriesInChunks<TEntry>(
 	entries: readonly TEntry[],
 	putChunk: (chunk: readonly TEntry[]) => Promise<void>,
@@ -147,8 +111,19 @@ async function performSeed(
 	runtimeState: DictionarySeedRuntimeState,
 ): Promise<void> {
 	const manifest = await dependencies.loadManifest();
-	const needsSeed = await shouldSeedStaticDictionary(dependencies, manifest);
-	if (!needsSeed) {
+	const [tablesPopulated, seedState] = await Promise.all([
+		dependencies.repository.isPopulated(),
+		dependencies.storage.readState(),
+	]);
+	const seedIsCurrent =
+		tablesPopulated &&
+		seedState !== null &&
+		matchesDictionarySeedState(
+			seedState,
+			manifest,
+			dependencies.dbSchemaVersion,
+		);
+	if (seedIsCurrent) {
 		runtimeState.lastAction = "skipped";
 		runtimeState.lastError = null;
 		return;
@@ -178,13 +153,17 @@ async function collectStatus(
 	dependencies: DictionarySeedServiceDependencies,
 	runtimeState: DictionarySeedRuntimeState,
 ): Promise<StaticDictionarySeedStatusResponse> {
-	const snapshot = await readSeedSnapshot(dependencies);
+	const [dictCount, lemmaCount, seedState] = await Promise.all([
+		dependencies.repository.countDictEntries(),
+		dependencies.repository.countLemmaEntries(),
+		dependencies.storage.readState(),
+	]);
 	return {
-		dictCount: snapshot.dictCount,
-		hasSeedState: snapshot.seedState !== null,
+		dictCount: dictCount,
+		hasSeedState: seedState !== null,
 		lastAction: runtimeState.lastAction,
 		lastError: runtimeState.lastError,
-		lemmaCount: snapshot.lemmaCount,
+		lemmaCount: lemmaCount,
 	};
 }
 

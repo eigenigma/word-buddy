@@ -199,9 +199,19 @@ describe("dictionary seed wiring", () => {
 		await repository.putLemmaEntries([AGENDA_LEMMA_ENTRY, RUN_LEMMA_ENTRY]);
 		await expect(repository.countDictEntries()).resolves.toBe(1);
 		await expect(repository.countLemmaEntries()).resolves.toBe(2);
+		await expect(repository.isPopulated()).resolves.toBe(true);
 
 		await repository.clearAll();
 		await expect(repository.countDictEntries()).resolves.toBe(0);
 		await expect(repository.countLemmaEntries()).resolves.toBe(0);
+		await expect(repository.isPopulated()).resolves.toBe(false);
+	});
+
+	it("reports the tables unpopulated while any of them is empty", async () => {
+		const { repository } = captureDependencies().seed;
+
+		await repository.putDictEntries([TEST_DICT_ENTRY]);
+
+		await expect(repository.isPopulated()).resolves.toBe(false);
 	});
 });

@@ -1,3 +1,5 @@
+import type { Table } from "dexie";
+
 import {
 	loadDictionarySeedAssets,
 	loadDictionarySeedManifest,
@@ -49,6 +51,11 @@ function createDictionaryQueryBrowserAdapter(
 	});
 }
 
+// count() walks the whole store; one primary key answers "is it empty".
+async function hasRows(table: Table<unknown, string>): Promise<boolean> {
+	return (await table.limit(1).primaryKeys()).length > 0;
+}
+
 function createDictionarySeedBrowserAdapter(): DictionarySeedService {
 	return createDictionarySeedService({
 		dbSchemaVersion: STATIC_DICTIONARY_DB_SCHEMA_VERSION,
@@ -68,6 +75,13 @@ function createDictionarySeedBrowserAdapter(): DictionarySeedService {
 			},
 			countDictEntries: () => staticDictionaryDb.dict.count(),
 			countLemmaEntries: () => staticDictionaryDb.lemma.count(),
+			isPopulated: async (): Promise<boolean> => {
+				const [hasDictRows, hasLemmaRows] = await Promise.all([
+					hasRows(staticDictionaryDb.dict),
+					hasRows(staticDictionaryDb.lemma),
+				]);
+				return hasDictRows && hasLemmaRows;
+			},
 			putDictEntries: async (entries: readonly DictionaryEntry[]) => {
 				await staticDictionaryDb.transaction(
 					"rw",

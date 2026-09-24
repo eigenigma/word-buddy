@@ -104,6 +104,7 @@ function createMatchingSeedState(): DictionarySeedState {
 
 interface InMemoryRepositoryState {
 	clearAllCalls: number;
+	countCalls: number;
 	dictEntries: readonly DictionaryEntry[];
 	dictWriteCalls: number;
 	lemmaEntries: readonly LemmaEntry[];
@@ -126,6 +127,7 @@ function createInMemoryRepository(
 } {
 	const state: InMemoryRepositoryState = {
 		clearAllCalls: 0,
+		countCalls: 0,
 		dictEntries: initialState.dictEntries ?? [],
 		dictWriteCalls: 0,
 		lemmaEntries: initialState.lemmaEntries ?? [],
@@ -139,8 +141,16 @@ function createInMemoryRepository(
 				state.dictEntries = [];
 				state.lemmaEntries = [];
 			},
-			countDictEntries: async (): Promise<number> => state.dictEntries.length,
-			countLemmaEntries: async (): Promise<number> => state.lemmaEntries.length,
+			countDictEntries: async (): Promise<number> => {
+				state.countCalls += 1;
+				return state.dictEntries.length;
+			},
+			countLemmaEntries: async (): Promise<number> => {
+				state.countCalls += 1;
+				return state.lemmaEntries.length;
+			},
+			isPopulated: async (): Promise<boolean> =>
+				state.dictEntries.length > 0 && state.lemmaEntries.length > 0,
 			putDictEntries: async (
 				entries: readonly DictionaryEntry[],
 			): Promise<void> => {
@@ -276,6 +286,7 @@ describe("createDictionarySeedService", () => {
 		expect(harness.loadManifestCalls.current).toBe(1);
 		expect(harness.loadAssetsCalls.current).toBe(0);
 		expect(harness.repository.clearAllCalls).toBe(0);
+		expect(harness.repository.countCalls).toBe(0);
 		expect(await harness.service.getStatus()).toEqual({
 			dictCount: 1,
 			hasSeedState: true,
@@ -283,6 +294,19 @@ describe("createDictionarySeedService", () => {
 			lastError: null,
 			lemmaCount: 1,
 		});
+	});
+
+	it("reseeds when the tables are not populated even though the stored seed state matches", async () => {
+		const harness = createSeedServiceHarness({
+			dictEntries: TEST_DICT_ENTRIES,
+			seedState: createMatchingSeedState(),
+		});
+
+		await harness.service.ensureSeeded();
+
+		expect(harness.loadAssetsCalls.current).toBe(1);
+		expect(harness.repository.clearAllCalls).toBe(1);
+		expect(harness.repository.lemmaEntries).toEqual(TEST_LEMMA_ENTRIES);
 	});
 
 	it("records the error transition and resets the in-flight promise after failure", async () => {

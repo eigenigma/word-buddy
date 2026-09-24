@@ -22,7 +22,7 @@ export default defineConfig({
 			provider: "v8",
 		},
 		environment: "node",
-		include: ["src/**/*.{test,spec}.{ts,tsx}"],
+		include: ["src/**/*.{test,spec}.{ts,tsx}", "*.{test,spec}.{ts,tsx}"],
 		setupFiles: ["fake-indexeddb/auto"],
 	},
 });

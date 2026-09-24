@@ -39,5 +39,8 @@
 		"dexie": "^4.4.6",
 		"preact": "^10.29.8",
 		"zod": "^4.6.5"
+	},
+	"patchedDependencies": {
+		"@unocss/preset-wind4@66.10.5": "patches/@unocss%2Fpreset-wind4@66.10.5.patch"
 	}
 }

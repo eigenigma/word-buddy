@@ -1,0 +1,13 @@
+diff --git a/dist/index.mjs b/dist/index.mjs
+index d00dbe91e6f6933cb3afad8c6151fa529ac883ff..a950fa234c0281e7c9605257a88f112ed9b99edf 100644
+--- a/dist/index.mjs
++++ b/dist/index.mjs
+@@ -506,7 +506,7 @@ ${depCSS}
+ 			};
+ 			if (mode === "on-demand") {
+ 				if (trackedTheme.size === 0) return void 0;
+-				deps = Array.from(trackedTheme).map((k) => {
++				deps = Array.from(trackedTheme).sort().map((k) => {
+ 					const [key, prop] = k.split(":");
+ 					const v = getThemeByKey(theme, key, prop.split("-"));
+ 					if (typeof v === "string") return [`--${key}${`${key === "spacing" && prop === "DEFAULT" ? "" : `-${prop}`}`}`, v];

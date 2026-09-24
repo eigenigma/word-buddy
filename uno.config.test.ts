@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { globSync } from "node:fs";
+import { globSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { createGenerator } from "unocss";
@@ -9,18 +9,16 @@ import { splitShadowRootCss } from "wxt/utils/split-shadow-root-css";
 
 import unoConfig, { CSS_VARIABLE_PREFIX } from "./uno.config";
 
-async function generateSampleCss(): Promise<string> {
+// preset-wind4 tracks theme usage in module state that only a new generator
+// resets, so every call builds its own.
+async function generateCss(tokens: readonly string[]): Promise<string> {
 	const generator = await createGenerator(unoConfig);
-	const { css } = await generator.generate([
-		"bg-white",
-		"shadow-xl",
-		"sm:flex-row",
-	]);
+	const { css } = await generator.generate(new Set(tokens));
 	return css;
 }
 
 const { documentCss, shadowCss } = splitShadowRootCss(
-	await generateSampleCss(),
+	await generateCss(["bg-white", "shadow-xl", "sm:flex-row"]),
 );
 
 const shadowSheet = new CSSStyleSheet();
@@ -114,5 +112,30 @@ describe("uno.config content pipeline", () => {
 
 		expect(sourceModules).not.toHaveLength(0);
 		expect(sourceModules.filter((id) => !context.filter("", id))).toEqual([]);
+	});
+});
+
+async function extractSourceClasses(): Promise<string[]> {
+	const generator = await createGenerator(unoConfig);
+	const perModule = await Promise.all(
+		sourceModules.map((id) =>
+			generator.applyExtractors(readFileSync(id, "utf8"), id),
+		),
+	);
+	return Array.from(new Set(perModule.flatMap((tokens) => Array.from(tokens))));
+}
+
+// Vite scans modules concurrently, so classes reach the generator in a
+// different order on every build, yet AMO rebuilds the sources and expects
+// the same CSS hash. Upstream preset-wind4 prints on-demand theme variables
+// in first-use order; the patch under patches/ sorts them.
+describe("uno.config output stability", () => {
+	it("emits the same CSS whatever order the source classes arrive in", async () => {
+		const classes = await extractSourceClasses();
+
+		const forward = await generateCss(classes);
+		const reversed = await generateCss(classes.toReversed());
+
+		expect(reversed).toBe(forward);
 	});
 });

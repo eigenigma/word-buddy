@@ -30,14 +30,21 @@ interface DictionaryBrowserAdapter {
 
 type GetSeededDictionary = () => Promise<StaticDictionaryDatabase>;
 
-function createDictionaryQueryBrowserAdapter(): DictionaryQueryService {
+function createDictionaryQueryBrowserAdapter(
+	getSeededDictionary: GetSeededDictionary,
+): DictionaryQueryService {
 	return createDictionaryQueryService({
 		dictRepository: {
-			getByWord: (word: string) => staticDictionaryDb.dict.get(word),
+			getByWord: async (word: string) => {
+				const dictionary = await getSeededDictionary();
+				return await dictionary.dict.get(word);
+			},
 		},
 		lemmaRepository: {
-			getBySurface: async (surface: string) =>
-				(await staticDictionaryDb.lemma.get(surface))?.lemma,
+			getBySurface: async (surface: string) => {
+				const dictionary = await getSeededDictionary();
+				return (await dictionary.lemma.get(surface))?.lemma;
+			},
 		},
 	});
 }
@@ -95,13 +102,16 @@ function createLemmaExpansionBrowserAdapter(
 
 export function createDictionaryBrowserAdapter(): DictionaryBrowserAdapter {
 	const dictionarySeedService = createDictionarySeedBrowserAdapter();
+	// The router serves messages while seeding clears and refills the tables,
+	// so every read waits for it instead of seeing a partial dictionary.
 	const getSeededDictionary: GetSeededDictionary = async () => {
 		await dictionarySeedService.ensureSeeded();
 		return staticDictionaryDb;
 	};
 
 	return {
-		dictionaryQueryService: createDictionaryQueryBrowserAdapter(),
+		dictionaryQueryService:
+			createDictionaryQueryBrowserAdapter(getSeededDictionary),
 		dictionarySeedService: dictionarySeedService,
 		lemmaExpansionService:
 			createLemmaExpansionBrowserAdapter(getSeededDictionary),

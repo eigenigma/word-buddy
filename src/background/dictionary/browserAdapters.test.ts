@@ -134,23 +134,61 @@ describe("createDictionaryBrowserAdapter", () => {
 	});
 });
 
-describe("dictionary query wiring", () => {
-	it("routes lookups through staticDictionaryDb", async () => {
+describe("seeded dictionary reads", () => {
+	function captureReadDependencies(): {
+		readonly lemmaExpansion: LemmaExpansionServiceDependencies;
+		readonly query: DictionaryQueryServiceDependencies;
+	} {
+		createDictionaryBrowserAdapter();
+		const query = createDictionaryQueryServiceMock.mock.lastCall?.[0];
+		const lemmaExpansion = createLemmaExpansionServiceMock.mock.lastCall?.[0];
+		if (query === undefined || lemmaExpansion === undefined) {
+			throw new Error("createDictionaryBrowserAdapter built no read services");
+		}
+		return { lemmaExpansion: lemmaExpansion, query: query };
+	}
+
+	it("touch staticDictionaryDb only after the adapter's seed service finishes", async () => {
+		const seed = Promise.withResolvers<void>();
+		DICTIONARY_SEED_SERVICE.ensureSeeded.mockReturnValue(seed.promise);
 		staticDictionaryDbMock.dict.get.mockResolvedValue(TEST_DICT_ENTRY);
 		staticDictionaryDbMock.lemma.get.mockResolvedValue({ lemma: "agenda" });
-		createDictionaryBrowserAdapter();
+		staticDictionaryDbMock.lemma.toArray.mockResolvedValue([TEST_LEMMA_ENTRY]);
+		const { lemmaExpansion, query } = captureReadDependencies();
 
-		const dependencies = createDictionaryQueryServiceMock.mock.lastCall?.[0];
-		assert.isDefined(dependencies);
+		const pendingEntry = query.dictRepository.getByWord("agenda");
+		const pendingLemma = query.lemmaRepository.getBySurface("agendas");
+		const pendingRows = lemmaExpansion.repository.listAll();
+		await sleep(0);
+		expect(staticDictionaryDbMock.dict.get).not.toHaveBeenCalled();
+		expect(staticDictionaryDbMock.lemma.get).not.toHaveBeenCalled();
+		expect(staticDictionaryDbMock.lemma.toArray).not.toHaveBeenCalled();
 
-		await expect(
-			dependencies.dictRepository.getByWord("agenda"),
-		).resolves.toEqual(TEST_DICT_ENTRY);
-		await expect(
-			dependencies.lemmaRepository.getBySurface("agendas"),
-		).resolves.toBe("agenda");
+		seed.resolve();
+		await expect(pendingEntry).resolves.toEqual(TEST_DICT_ENTRY);
+		await expect(pendingLemma).resolves.toBe("agenda");
+		await expect(pendingRows).resolves.toEqual([TEST_LEMMA_ENTRY]);
 		expect(staticDictionaryDbMock.dict.get).toHaveBeenCalledWith("agenda");
 		expect(staticDictionaryDbMock.lemma.get).toHaveBeenCalledWith("agendas");
+		expect(staticDictionaryDbMock.lemma.toArray).toHaveBeenCalledTimes(1);
+		expect(createDictionarySeedServiceMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("reject with the seed error without touching staticDictionaryDb", async () => {
+		const seedError = new Error("seed failed");
+		DICTIONARY_SEED_SERVICE.ensureSeeded.mockRejectedValue(seedError);
+		const { lemmaExpansion, query } = captureReadDependencies();
+
+		await expect(query.dictRepository.getByWord("agenda")).rejects.toBe(
+			seedError,
+		);
+		await expect(query.lemmaRepository.getBySurface("agendas")).rejects.toBe(
+			seedError,
+		);
+		await expect(lemmaExpansion.repository.listAll()).rejects.toBe(seedError);
+		expect(staticDictionaryDbMock.dict.get).not.toHaveBeenCalled();
+		expect(staticDictionaryDbMock.lemma.get).not.toHaveBeenCalled();
+		expect(staticDictionaryDbMock.lemma.toArray).not.toHaveBeenCalled();
 	});
 });
 
@@ -177,26 +215,5 @@ describe("dictionary seed wiring", () => {
 		expect(staticDictionaryDbMock.lemma.bulkPut).toHaveBeenCalledWith([
 			TEST_LEMMA_ENTRY,
 		]);
-	});
-});
-
-describe("lemma expansion wiring", () => {
-	it("reads staticDictionaryDb.lemma only after the adapter's seed service finishes", async () => {
-		const seed = Promise.withResolvers<void>();
-		DICTIONARY_SEED_SERVICE.ensureSeeded.mockReturnValue(seed.promise);
-		staticDictionaryDbMock.lemma.toArray.mockResolvedValue([TEST_LEMMA_ENTRY]);
-		createDictionaryBrowserAdapter();
-
-		const dependencies = createLemmaExpansionServiceMock.mock.lastCall?.[0];
-		assert.isDefined(dependencies);
-
-		const pendingRows = dependencies.repository.listAll();
-		await sleep(0);
-		expect(staticDictionaryDbMock.lemma.toArray).not.toHaveBeenCalled();
-
-		seed.resolve();
-		await expect(pendingRows).resolves.toEqual([TEST_LEMMA_ENTRY]);
-		expect(staticDictionaryDbMock.lemma.toArray).toHaveBeenCalledTimes(1);
-		expect(createDictionarySeedServiceMock).toHaveBeenCalledTimes(1);
 	});
 });

@@ -102,6 +102,19 @@ function createMatchingSeedState(): DictionarySeedState {
 	};
 }
 
+interface InMemoryRepositoryState {
+	clearAllCalls: number;
+	dictEntries: readonly DictionaryEntry[];
+	dictWriteCalls: number;
+	lemmaEntries: readonly LemmaEntry[];
+	lemmaWriteCalls: number;
+}
+
+interface InMemorySeedStateStorageState {
+	seedState: DictionarySeedState | null;
+	writeCalls: number;
+}
+
 function createInMemoryRepository(
 	initialState: {
 		readonly dictEntries?: readonly DictionaryEntry[];
@@ -109,15 +122,9 @@ function createInMemoryRepository(
 	} = {},
 ): {
 	readonly repository: DictionarySeedRepository;
-	readonly state: {
-		clearAllCalls: number;
-		dictEntries: readonly DictionaryEntry[];
-		dictWriteCalls: number;
-		lemmaEntries: readonly LemmaEntry[];
-		lemmaWriteCalls: number;
-	};
+	readonly state: InMemoryRepositoryState;
 } {
-	const state = {
+	const state: InMemoryRepositoryState = {
 		clearAllCalls: 0,
 		dictEntries: initialState.dictEntries ?? [],
 		dictWriteCalls: 0,
@@ -154,10 +161,10 @@ function createInMemoryRepository(
 function createInMemorySeedStateStorage(
 	initialSeedState: DictionarySeedState | null = null,
 ): {
-	readonly state: { seedState: DictionarySeedState | null; writeCalls: number };
+	readonly state: InMemorySeedStateStorageState;
 	readonly storage: DictionarySeedStateStorage;
 } {
-	const state = {
+	const state: InMemorySeedStateStorageState = {
 		seedState: initialSeedState,
 		writeCalls: 0,
 	};
@@ -191,17 +198,8 @@ function createSeedServiceHarness(
 ): {
 	readonly loadAssetsCalls: { current: number };
 	readonly loadManifestCalls: { current: number };
-	readonly repository: {
-		clearAllCalls: number;
-		dictEntries: readonly DictionaryEntry[];
-		dictWriteCalls: number;
-		lemmaEntries: readonly LemmaEntry[];
-		lemmaWriteCalls: number;
-	};
-	readonly seedState: {
-		seedState: DictionarySeedState | null;
-		writeCalls: number;
-	};
+	readonly repository: InMemoryRepositoryState;
+	readonly seedState: InMemorySeedStateStorageState;
 	readonly service: ReturnType<typeof createDictionarySeedService>;
 } {
 	const loadManifestCalls = { current: 0 };

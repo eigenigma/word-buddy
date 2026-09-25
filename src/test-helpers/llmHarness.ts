@@ -10,11 +10,7 @@ import {
 	createTranslationCacheService,
 	type TranslationRepository,
 } from "../background/translations/service";
-import {
-	userDb,
-	WORD_BUDDY_USER_DB_NAME,
-	WordBuddyUserDatabase,
-} from "../background/wordbook/database";
+import { WordBuddyUserDatabase } from "../background/wordbook/database";
 import type { LlmSettings } from "../shared/settings/types";
 import type { TranslationCacheEntry } from "../shared/translations/types";
 
@@ -38,23 +34,6 @@ const PASS_THROUGH_RETRY_POLICY: RetryPolicy = {
 	attemptFetch: async (request: () => Promise<Response>): Promise<Response> =>
 		await request(),
 };
-
-export async function deleteWordBuddyDatabase(): Promise<void> {
-	userDb.close();
-
-	await new Promise<void>((resolve, reject) => {
-		const request = indexedDB.deleteDatabase(WORD_BUDDY_USER_DB_NAME);
-		request.onsuccess = (): void => {
-			resolve();
-		};
-		request.onerror = (): void => {
-			reject(request.error ?? new Error("Failed to delete test database."));
-		};
-		request.onblocked = (): void => {
-			reject(new Error("Deleting test database was blocked."));
-		};
-	});
-}
 
 export function createJsonResponse(payload: unknown, status = 200): Response {
 	return new Response(JSON.stringify(payload), {

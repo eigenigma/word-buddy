@@ -3,9 +3,9 @@ import { afterAll, afterEach, describe, expect, it } from "vitest";
 
 import type { TranslationCacheEntry } from "@/shared/translations/types";
 import type { WordbookEntry } from "@/shared/wordbook/types";
+import { deleteWordBuddyDatabase } from "@/test-helpers/indexedDb";
 
 import {
-	userDb,
 	WORD_BUDDY_USER_DB_NAME,
 	WordBuddyUserDatabase,
 } from "../wordbook/database";
@@ -51,12 +51,12 @@ function trackDatabase<TDatabase extends Dexie>(
 	return database;
 }
 
-function closeOpenDatabases(): void {
-	userDb.close();
+async function resetUserDatabase(): Promise<void> {
 	for (const database of openDatabases) {
 		database.close();
 	}
 	openDatabases.clear();
+	await deleteWordBuddyDatabase();
 }
 
 function createCacheService(
@@ -78,32 +78,12 @@ function createCacheService(
 	});
 }
 
-async function deleteIndexedDatabase(databaseName: string): Promise<void> {
-	await new Promise<void>((resolve, reject) => {
-		const request = indexedDB.deleteDatabase(databaseName);
-		request.onsuccess = (): void => {
-			resolve();
-		};
-		request.onerror = (): void => {
-			reject(request.error ?? new Error("Failed to delete test database."));
-		};
-		request.onblocked = (): void => {
-			reject(new Error("Deleting test database was blocked."));
-		};
-	});
-}
-
-async function deleteWordBuddyDatabase(): Promise<void> {
-	closeOpenDatabases();
-	await deleteIndexedDatabase(WORD_BUDDY_USER_DB_NAME);
-}
-
 afterEach(async () => {
-	await deleteWordBuddyDatabase();
+	await resetUserDatabase();
 });
 
 afterAll(async () => {
-	await deleteWordBuddyDatabase();
+	await resetUserDatabase();
 });
 
 describe("translation hash helpers", () => {
@@ -144,7 +124,7 @@ describe("translation hash helpers", () => {
 
 describe("createTranslationCacheService", () => {
 	it("creates a fresh v2 schema and round-trips cached translations", async () => {
-		await deleteWordBuddyDatabase();
+		await resetUserDatabase();
 		const database = trackDatabase(new WordBuddyUserDatabase());
 		await database.open();
 
@@ -170,7 +150,7 @@ describe("createTranslationCacheService", () => {
 	});
 
 	it("upgrades a legacy v1 words database without losing existing data", async () => {
-		await deleteWordBuddyDatabase();
+		await resetUserDatabase();
 		const legacyDatabase = trackDatabase(new LegacyWordBuddyUserDatabase());
 		await legacyDatabase.open();
 		await legacyDatabase.words.put(TEST_WORD_ENTRY);

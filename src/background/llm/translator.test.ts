@@ -2,11 +2,11 @@ import { afterEach, assert, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import type { LlmSettings } from "../../shared/settings/types";
+import { deleteWordBuddyDatabase } from "../../test-helpers/indexedDb";
 import {
 	createJsonResponse,
 	createTextResponse,
 	createTranslatorHarness,
-	deleteWordBuddyDatabase,
 	type TranslatorHarness,
 } from "../../test-helpers/llmHarness";
 

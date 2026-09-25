@@ -1,4 +1,4 @@
-import type { AhoCorasickMatch } from "@/shared/matching";
+import type { AhoCorasickMatch } from "@/shared/matching/ahoCorasick";
 
 export interface RendererInput {
 	readonly block: Element;

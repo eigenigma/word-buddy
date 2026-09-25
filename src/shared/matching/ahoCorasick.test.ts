@@ -5,7 +5,7 @@ import {
 	createAhoCorasickMatcher,
 	isWholeWordMatch,
 	type PatternRef,
-} from "./index";
+} from "./ahoCorasick";
 
 function findWholeWordMatches(
 	patterns: readonly PatternRef[],

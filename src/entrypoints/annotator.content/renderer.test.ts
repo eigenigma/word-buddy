@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { assert, describe, expect, it } from "vitest";
 
-import type { AhoCorasickMatch } from "../../shared/matching";
+import type { AhoCorasickMatch } from "@/shared/matching/ahoCorasick";
 import { renderAnnotations } from "./renderer";
 
 const MATCH: AhoCorasickMatch = {

@@ -7,7 +7,7 @@ import {
 	createAhoCorasickMatcher,
 	isWholeWordMatch,
 	type PatternRef,
-} from "@/shared/matching";
+} from "@/shared/matching/ahoCorasick";
 import { requestExpandLemmas } from "@/shared/runtime/dictionaryClient";
 import { requestTranslateParagraph } from "@/shared/runtime/llmClient";
 import { requestWordbookList } from "@/shared/runtime/wordbookClient";

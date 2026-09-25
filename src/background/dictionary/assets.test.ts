@@ -73,6 +73,25 @@ describe("loadManifest", () => {
 		);
 	});
 
+	it("changes the fingerprint when only an artifact hash changes", async () => {
+		const loadFingerprint = async (lemmaIndexSha: string): Promise<string> => {
+			const { loader } = createLoader({
+				"moz-extension://id/data/dict-meta.json": JSON.stringify({
+					...TEST_DICTIONARY_METADATA,
+					artifactSha256: {
+						...TEST_DICTIONARY_METADATA.artifactSha256,
+						lemmaIndex: lemmaIndexSha,
+					},
+				}),
+			});
+			return (await loader.loadManifest()).assetFingerprint;
+		};
+
+		expect(await loadFingerprint("rebuilt-sha")).not.toBe(
+			await loadFingerprint(TEST_DICTIONARY_METADATA.artifactSha256.lemmaIndex),
+		);
+	});
+
 	it("throws when the metadata asset fetch fails", async () => {
 		const { loader } = createLoader({});
 

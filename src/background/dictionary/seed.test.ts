@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
 	DictionaryEntry,
@@ -8,13 +8,13 @@ import { TEST_DICTIONARY_METADATA } from "../../test-helpers/dictionaryMetadata"
 
 import type { DictionarySeedAssets, DictionarySeedManifest } from "./assets";
 import {
+	createBrowserDictionarySeedStateStorage,
 	createDictionarySeedService,
 	type DictionarySeedRepository,
 	type DictionarySeedState,
 	type DictionarySeedStateStorage,
+	SEED_FORMAT_VERSION,
 } from "./seed";
-
-const DB_SCHEMA_VERSION = 7;
 
 const TEST_MANIFEST: DictionarySeedManifest = {
 	assetFingerprint: "asset-fingerprint",
@@ -58,10 +58,7 @@ const TEST_ASSETS: DictionarySeedAssets = {
 function createMatchingSeedState(): DictionarySeedState {
 	return {
 		assetFingerprint: TEST_MANIFEST.assetFingerprint,
-		assetSchemaVersion: TEST_MANIFEST.metadata.schemaVersion,
-		dbSchemaVersion: DB_SCHEMA_VERSION,
-		dictEntryCount: TEST_DICT_ENTRIES.length,
-		lemmaEntryCount: TEST_LEMMA_ENTRIES.length,
+		seedFormatVersion: SEED_FORMAT_VERSION,
 	};
 }
 
@@ -188,7 +185,6 @@ function createSeedServiceHarness(
 	const storage = createInMemorySeedStateStorage(options.seedState ?? null);
 
 	const service = createDictionarySeedService({
-		dbSchemaVersion: DB_SCHEMA_VERSION,
 		loadAssets: async (
 			manifest: DictionarySeedManifest,
 		): Promise<DictionarySeedAssets> => {
@@ -272,6 +268,50 @@ describe("createDictionarySeedService", () => {
 		expect(harness.repository.lemmaEntries).toEqual(TEST_LEMMA_ENTRIES);
 	});
 
+	it("reseeds when a rebuilt artifact changed the manifest fingerprint", async () => {
+		const rebuiltManifest: DictionarySeedManifest = {
+			assetFingerprint: "rebuilt-asset-fingerprint",
+			metadata: {
+				...TEST_MANIFEST.metadata,
+				artifactSha256: {
+					...TEST_MANIFEST.metadata.artifactSha256,
+					lemmaIndex: "rebuilt-lemma-index-sha",
+				},
+			},
+		};
+		const harness = createSeedServiceHarness({
+			dictEntries: TEST_DICT_ENTRIES,
+			lemmaEntries: TEST_LEMMA_ENTRIES,
+			loadManifest: async (): Promise<DictionarySeedManifest> =>
+				rebuiltManifest,
+			seedState: createMatchingSeedState(),
+		});
+
+		await harness.service.ensureSeeded();
+
+		expect(harness.loadAssetsCalls.current).toBe(1);
+		expect(harness.seedState.seedState).toEqual({
+			assetFingerprint: rebuiltManifest.assetFingerprint,
+			seedFormatVersion: SEED_FORMAT_VERSION,
+		});
+	});
+
+	it("reseeds when the stored seed format version is stale", async () => {
+		const harness = createSeedServiceHarness({
+			dictEntries: TEST_DICT_ENTRIES,
+			lemmaEntries: TEST_LEMMA_ENTRIES,
+			seedState: {
+				...createMatchingSeedState(),
+				seedFormatVersion: SEED_FORMAT_VERSION - 1,
+			},
+		});
+
+		await harness.service.ensureSeeded();
+
+		expect(harness.loadAssetsCalls.current).toBe(1);
+		expect(harness.seedState.seedState).toEqual(createMatchingSeedState());
+	});
+
 	it("records the error transition and resets the in-flight promise after failure", async () => {
 		const harness = createSeedServiceHarness({
 			loadAssets: async (): Promise<DictionarySeedAssets> => {
@@ -289,5 +329,33 @@ describe("createDictionarySeedService", () => {
 			lastError: "asset load failed",
 			lemmaCount: 0,
 		});
+	});
+});
+
+describe("createBrowserDictionarySeedStateStorage", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("reads a state stored in the previous five-field shape as absent", async () => {
+		vi.stubGlobal("browser", {
+			storage: {
+				local: {
+					get: async (): Promise<Record<string, unknown>> => ({
+						staticDictionarySeedState: {
+							assetFingerprint: TEST_MANIFEST.assetFingerprint,
+							assetSchemaVersion: 1,
+							dbSchemaVersion: 2,
+							dictEntryCount: 1,
+							lemmaEntryCount: 1,
+						},
+					}),
+				},
+			},
+		});
+
+		await expect(
+			createBrowserDictionarySeedStateStorage().readState(),
+		).resolves.toBeNull();
 	});
 });

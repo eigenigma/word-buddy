@@ -9,14 +9,15 @@ import type { DictionarySeedAssets, DictionarySeedManifest } from "./assets";
 const STATIC_DICTIONARY_SEED_KEY = "staticDictionarySeedState";
 const STATIC_DICTIONARY_CHUNK_SIZE = 1000;
 
+// The manifest fingerprint covers the generated artifacts. Bump this when
+// the rows written to the static tables change shape for the same artifacts.
+export const SEED_FORMAT_VERSION = 1;
+
 type DictionarySeedLastAction = "seeded" | "skipped" | null;
 
 export interface DictionarySeedState {
 	readonly assetFingerprint: string;
-	readonly assetSchemaVersion: number;
-	readonly dbSchemaVersion: number;
-	readonly dictEntryCount: number;
-	readonly lemmaEntryCount: number;
+	readonly seedFormatVersion: number;
 }
 
 export interface DictionarySeedRepository {
@@ -37,7 +38,6 @@ export interface DictionarySeedStateStorage {
 }
 
 export interface DictionarySeedServiceDependencies {
-	readonly dbSchemaVersion: number;
 	readonly loadAssets: (
 		manifest: DictionarySeedManifest,
 	) => Promise<DictionarySeedAssets>;
@@ -60,35 +60,26 @@ interface DictionarySeedRuntimeState {
 const DictionarySeedStateSchema: z.ZodType<DictionarySeedState> = z
 	.object({
 		assetFingerprint: z.string(),
-		assetSchemaVersion: z.number(),
-		dbSchemaVersion: z.number(),
-		dictEntryCount: z.number(),
-		lemmaEntryCount: z.number(),
+		seedFormatVersion: z.number(),
 	})
 	.readonly();
 
 function createDictionarySeedState(
-	assets: DictionarySeedAssets,
-	dbSchemaVersion: number,
+	manifest: DictionarySeedManifest,
 ): DictionarySeedState {
 	return {
-		assetFingerprint: assets.assetFingerprint,
-		assetSchemaVersion: assets.metadata.schemaVersion,
-		dbSchemaVersion: dbSchemaVersion,
-		dictEntryCount: assets.dictEntries.length,
-		lemmaEntryCount: assets.lemmaEntries.length,
+		assetFingerprint: manifest.assetFingerprint,
+		seedFormatVersion: SEED_FORMAT_VERSION,
 	};
 }
 
 function matchesDictionarySeedState(
 	seedState: DictionarySeedState,
 	manifest: DictionarySeedManifest,
-	dbSchemaVersion: number,
 ): boolean {
 	return (
 		seedState.assetFingerprint === manifest.assetFingerprint &&
-		seedState.assetSchemaVersion === manifest.metadata.schemaVersion &&
-		seedState.dbSchemaVersion === dbSchemaVersion
+		seedState.seedFormatVersion === SEED_FORMAT_VERSION
 	);
 }
 
@@ -118,11 +109,7 @@ async function performSeed(
 	const seedIsCurrent =
 		tablesPopulated &&
 		seedState !== null &&
-		matchesDictionarySeedState(
-			seedState,
-			manifest,
-			dependencies.dbSchemaVersion,
-		);
+		matchesDictionarySeedState(seedState, manifest);
 	if (seedIsCurrent) {
 		runtimeState.lastAction = "skipped";
 		runtimeState.lastError = null;
@@ -142,9 +129,7 @@ async function performSeed(
 			dependencies.repository.putLemmaEntries,
 		),
 	]);
-	await dependencies.storage.writeState(
-		createDictionarySeedState(assets, dependencies.dbSchemaVersion),
-	);
+	await dependencies.storage.writeState(createDictionarySeedState(manifest));
 	runtimeState.lastAction = "seeded";
 	runtimeState.lastError = null;
 }

@@ -1,10 +1,8 @@
 import type { Table } from "dexie";
-
 import type { PublicPath } from "wxt/browser";
 
 import { createDictionaryAssetLoader } from "@/background/dictionary/assets";
 import {
-	STATIC_DICTIONARY_DB_SCHEMA_VERSION,
 	type StaticDictionaryDatabase,
 	staticDictionaryDb,
 } from "@/background/dictionary/database";
@@ -63,7 +61,6 @@ function createDictionarySeedBrowserAdapter(): DictionarySeedService {
 	});
 
 	return createDictionarySeedService({
-		dbSchemaVersion: STATIC_DICTIONARY_DB_SCHEMA_VERSION,
 		loadAssets: assetLoader.loadAssets,
 		loadManifest: assetLoader.loadManifest,
 		repository: {

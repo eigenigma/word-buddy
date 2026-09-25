@@ -19,10 +19,10 @@ import {
 	type DictionaryResolveService,
 } from "@/background/dictionary/resolveService";
 import {
-	createBrowserDictionarySeedStateStorage,
 	createDictionarySeedService,
 	type DictionarySeedService,
 } from "@/background/dictionary/seed";
+import { createBrowserDictionarySeedStateStorage } from "@/background/dictionary/storage";
 import type { DictionaryEntry, LemmaEntry } from "@/shared/dictionary/types";
 
 interface DictionaryBrowserAdapter {
@@ -67,15 +67,12 @@ async function hasRows(table: Table<unknown, string>): Promise<boolean> {
 }
 
 function createDictionarySeedBrowserAdapter(): DictionarySeedService {
-	const assetLoader = createDictionaryAssetLoader({
-		fetch: fetch.bind(globalThis),
-		getUrl: (assetPath: PublicPath): string =>
-			browser.runtime.getURL(assetPath),
-	});
-
 	return createDictionarySeedService({
-		loadAssets: assetLoader.loadAssets,
-		loadManifest: assetLoader.loadManifest,
+		assetLoader: createDictionaryAssetLoader({
+			fetch: fetch.bind(globalThis),
+			getUrl: (assetPath: PublicPath): string =>
+				browser.runtime.getURL(assetPath),
+		}),
 		repository: {
 			clearAll: async (): Promise<void> => {
 				await staticDictionaryDb.transaction(

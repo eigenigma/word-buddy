@@ -74,9 +74,11 @@ vi.mock("@/background/dictionary/resolveService", () => ({
 	createDictionaryResolveService: createDictionaryResolveServiceMock,
 }));
 vi.mock("@/background/dictionary/seed", () => ({
+	createDictionarySeedService: createDictionarySeedServiceMock,
+}));
+vi.mock("@/background/dictionary/storage", () => ({
 	createBrowserDictionarySeedStateStorage: (): object =>
 		DICTIONARY_SEED_STORAGE,
-	createDictionarySeedService: createDictionarySeedServiceMock,
 }));
 
 function captureDependencies(): {

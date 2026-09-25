@@ -111,7 +111,6 @@ describe("loadAssets", () => {
 		});
 
 		await expect(loader.loadAssets(TEST_MANIFEST)).resolves.toEqual({
-			assetFingerprint: "fingerprint",
 			dictEntries: [TEST_DICT_ENTRY],
 			lemmaEntries: [
 				{
@@ -119,7 +118,6 @@ describe("loadAssets", () => {
 					surface: "agendas",
 				},
 			],
-			metadata: TEST_DICTIONARY_METADATA,
 		});
 		expect(getUrl.mock.calls).toEqual([
 			["/data/lemma-index.json"],

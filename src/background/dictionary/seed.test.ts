@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type {
 	DictionaryEntry,
@@ -6,15 +6,17 @@ import type {
 } from "../../shared/dictionary/types";
 import { TEST_DICTIONARY_METADATA } from "../../test-helpers/dictionaryMetadata";
 
-import type { DictionarySeedAssets, DictionarySeedManifest } from "./assets";
 import {
-	createBrowserDictionarySeedStateStorage,
+	type DictionarySeedAssets,
+	type DictionarySeedManifest,
+	SEED_FORMAT_VERSION,
+} from "./assets";
+import {
 	createDictionarySeedService,
 	type DictionarySeedRepository,
 	type DictionarySeedService,
 	type DictionarySeedState,
 	type DictionarySeedStateStorage,
-	SEED_FORMAT_VERSION,
 } from "./seed";
 
 const TEST_MANIFEST: DictionarySeedManifest = {
@@ -50,10 +52,8 @@ const TEST_LEMMA_ENTRIES: readonly LemmaEntry[] = [
 ];
 
 const TEST_ASSETS: DictionarySeedAssets = {
-	assetFingerprint: TEST_MANIFEST.assetFingerprint,
 	dictEntries: TEST_DICT_ENTRIES,
 	lemmaEntries: TEST_LEMMA_ENTRIES,
-	metadata: TEST_MANIFEST.metadata,
 };
 
 function createMatchingSeedState(): DictionarySeedState {
@@ -172,17 +172,19 @@ function createSeedServiceHarness(
 
 	const createService = (): DictionarySeedService =>
 		createDictionarySeedService({
-			loadAssets: async (
-				manifest: DictionarySeedManifest,
-			): Promise<DictionarySeedAssets> => {
-				loadAssetsCalls.current += 1;
-				return await (options.loadAssets?.(manifest) ??
-					Promise.resolve(TEST_ASSETS));
-			},
-			loadManifest: async (): Promise<DictionarySeedManifest> => {
-				loadManifestCalls.current += 1;
-				return await (options.loadManifest?.() ??
-					Promise.resolve(TEST_MANIFEST));
+			assetLoader: {
+				loadAssets: async (
+					manifest: DictionarySeedManifest,
+				): Promise<DictionarySeedAssets> => {
+					loadAssetsCalls.current += 1;
+					return await (options.loadAssets?.(manifest) ??
+						Promise.resolve(TEST_ASSETS));
+				},
+				loadManifest: async (): Promise<DictionarySeedManifest> => {
+					loadManifestCalls.current += 1;
+					return await (options.loadManifest?.() ??
+						Promise.resolve(TEST_MANIFEST));
+				},
 			},
 			repository: repository.repository,
 			storage: storage.storage,
@@ -242,6 +244,7 @@ describe("createDictionarySeedService", () => {
 		expect(harness.loadManifestCalls.current).toBe(1);
 		expect(harness.loadAssetsCalls.current).toBe(1);
 	});
+
 	it("reseeds when the tables are not populated even though the stored seed state matches", async () => {
 		const harness = createSeedServiceHarness({
 			dictEntries: TEST_DICT_ENTRIES,
@@ -257,14 +260,8 @@ describe("createDictionarySeedService", () => {
 
 	it("reseeds when a rebuilt artifact changed the manifest fingerprint", async () => {
 		const rebuiltManifest: DictionarySeedManifest = {
+			...TEST_MANIFEST,
 			assetFingerprint: "rebuilt-asset-fingerprint",
-			metadata: {
-				...TEST_MANIFEST.metadata,
-				artifactSha256: {
-					...TEST_MANIFEST.metadata.artifactSha256,
-					lemmaIndex: "rebuilt-lemma-index-sha",
-				},
-			},
 		};
 		const harness = createSeedServiceHarness({
 			dictEntries: TEST_DICT_ENTRIES,
@@ -334,33 +331,5 @@ describe("createDictionarySeedService", () => {
 
 		expect(harness.loadAssetsCalls.current).toBe(2);
 		expect(harness.seedState.seedState).toEqual(createMatchingSeedState());
-	});
-});
-
-describe("createBrowserDictionarySeedStateStorage", () => {
-	afterEach(() => {
-		vi.unstubAllGlobals();
-	});
-
-	it("reads a state stored in the previous five-field shape as absent", async () => {
-		vi.stubGlobal("browser", {
-			storage: {
-				local: {
-					get: async (): Promise<Record<string, unknown>> => ({
-						staticDictionarySeedState: {
-							assetFingerprint: TEST_MANIFEST.assetFingerprint,
-							assetSchemaVersion: 1,
-							dbSchemaVersion: 2,
-							dictEntryCount: 1,
-							lemmaEntryCount: 1,
-						},
-					}),
-				},
-			},
-		});
-
-		await expect(
-			createBrowserDictionarySeedStateStorage().readState(),
-		).resolves.toBeNull();
 	});
 });

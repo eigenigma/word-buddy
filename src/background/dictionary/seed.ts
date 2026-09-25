@@ -1,15 +1,12 @@
-import { z } from "zod";
-
 import type { DictionaryEntry, LemmaEntry } from "@/shared/dictionary/types";
 
-import type { DictionarySeedAssets, DictionarySeedManifest } from "./assets";
+import {
+	type DictionaryAssetLoader,
+	type DictionarySeedManifest,
+	SEED_FORMAT_VERSION,
+} from "./assets";
 
-const STATIC_DICTIONARY_SEED_KEY = "staticDictionarySeedState";
 const STATIC_DICTIONARY_CHUNK_SIZE = 1000;
-
-// The manifest fingerprint covers the generated artifacts. Bump this when
-// the rows written to the static tables change shape for the same artifacts.
-export const SEED_FORMAT_VERSION = 1;
 
 export interface DictionarySeedState {
 	readonly assetFingerprint: string;
@@ -32,10 +29,7 @@ export interface DictionarySeedStateStorage {
 }
 
 export interface DictionarySeedServiceDependencies {
-	readonly loadAssets: (
-		manifest: DictionarySeedManifest,
-	) => Promise<DictionarySeedAssets>;
-	readonly loadManifest: () => Promise<DictionarySeedManifest>;
+	readonly assetLoader: DictionaryAssetLoader;
 	readonly repository: DictionarySeedRepository;
 	readonly storage: DictionarySeedStateStorage;
 }
@@ -44,29 +38,20 @@ export interface DictionarySeedService {
 	readonly ensureSeeded: () => Promise<void>;
 }
 
-const DictionarySeedStateSchema: z.ZodType<DictionarySeedState> = z
-	.object({
-		assetFingerprint: z.string(),
-		seedFormatVersion: z.number(),
-	})
-	.readonly();
-
-function createDictionarySeedState(
-	manifest: DictionarySeedManifest,
-): DictionarySeedState {
+function toSeedState(manifest: DictionarySeedManifest): DictionarySeedState {
 	return {
 		assetFingerprint: manifest.assetFingerprint,
 		seedFormatVersion: SEED_FORMAT_VERSION,
 	};
 }
 
-function matchesDictionarySeedState(
-	seedState: DictionarySeedState,
-	manifest: DictionarySeedManifest,
+function isSameSeedState(
+	left: DictionarySeedState,
+	right: DictionarySeedState,
 ): boolean {
 	return (
-		seedState.assetFingerprint === manifest.assetFingerprint &&
-		seedState.seedFormatVersion === SEED_FORMAT_VERSION
+		left.assetFingerprint === right.assetFingerprint &&
+		left.seedFormatVersion === right.seedFormatVersion
 	);
 }
 
@@ -87,20 +72,21 @@ async function seedEntriesInChunks<TEntry>(
 async function performSeed(
 	dependencies: DictionarySeedServiceDependencies,
 ): Promise<void> {
-	const [manifest, tablesPopulated, seedState] = await Promise.all([
-		dependencies.loadManifest(),
+	const [manifest, tablesPopulated, storedSeedState] = await Promise.all([
+		dependencies.assetLoader.loadManifest(),
 		dependencies.repository.isPopulated(),
 		dependencies.storage.readState(),
 	]);
-	const seedIsCurrent =
+	const currentSeedState = toSeedState(manifest);
+	if (
 		tablesPopulated &&
-		seedState !== null &&
-		matchesDictionarySeedState(seedState, manifest);
-	if (seedIsCurrent) {
+		storedSeedState !== null &&
+		isSameSeedState(storedSeedState, currentSeedState)
+	) {
 		return;
 	}
 
-	const assets = await dependencies.loadAssets(manifest);
+	const assets = await dependencies.assetLoader.loadAssets(manifest);
 	await dependencies.storage.clearState();
 	await dependencies.repository.clearAll();
 	await Promise.all([
@@ -113,29 +99,7 @@ async function performSeed(
 			dependencies.repository.putLemmaEntries,
 		),
 	]);
-	await dependencies.storage.writeState(createDictionarySeedState(manifest));
-}
-
-export function createBrowserDictionarySeedStateStorage(): DictionarySeedStateStorage {
-	return {
-		clearState: async (): Promise<void> => {
-			await browser.storage.local.remove(STATIC_DICTIONARY_SEED_KEY);
-		},
-		readState: async (): Promise<DictionarySeedState | null> => {
-			const storageValue = await browser.storage.local.get(
-				STATIC_DICTIONARY_SEED_KEY,
-			);
-			const seedState = storageValue[STATIC_DICTIONARY_SEED_KEY];
-			const parsedSeedState = DictionarySeedStateSchema.safeParse(seedState);
-
-			return parsedSeedState.success ? parsedSeedState.data : null;
-		},
-		writeState: async (seedState: DictionarySeedState): Promise<void> => {
-			await browser.storage.local.set({
-				[STATIC_DICTIONARY_SEED_KEY]: seedState,
-			});
-		},
-	};
+	await dependencies.storage.writeState(currentSeedState);
 }
 
 // One attempt per service lifetime: a failed seed keeps rejecting with the

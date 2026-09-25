@@ -20,10 +20,15 @@ export interface DictionarySeedManifest {
 	readonly metadata: DictionaryBuildMetadata;
 }
 
-export interface DictionarySeedAssets extends DictionarySeedManifest {
+export interface DictionarySeedAssets {
 	readonly dictEntries: readonly DictionaryEntry[];
 	readonly lemmaEntries: readonly LemmaEntry[];
 }
+
+// The manifest fingerprint covers the generated artifacts. Bump this when the
+// rows this loader produces (schemas, toLemmaEntries) change shape for the
+// same artifacts, so installed dictionaries reseed.
+export const SEED_FORMAT_VERSION = 1;
 
 export interface DictionaryAssetLoaderDependencies {
 	readonly fetch: (url: string) => Promise<Response>;
@@ -146,49 +151,40 @@ export function createDictionaryAssetLoader(
 		return await response.text();
 	};
 
-	const loadLemmaIndex = async (): Promise<LemmaIndex> =>
-		LemmaIndexSchema.parse(
-			JSON.parse(await fetchAssetText(LEMMA_INDEX_PUBLIC_PATH)),
-		);
+	const fetchJsonAsset = async <T>(
+		assetPath: PublicPath,
+		schema: z.ZodType<T>,
+	): Promise<T> => schema.parse(JSON.parse(await fetchAssetText(assetPath)));
 
-	const loadDictShard = async (
-		index: number,
-	): Promise<readonly DictionaryEntry[]> =>
-		DictionaryEntryArraySchema.parse(
-			JSON.parse(await fetchAssetText(dictShardPublicPath(index))),
+	const loadAssets = async (
+		manifest: DictionarySeedManifest,
+	): Promise<DictionarySeedAssets> => {
+		const shardPaths = manifest.metadata.artifactSha256.dictShards.map(
+			(_, index: number) => dictShardPublicPath(index),
 		);
-
-	return {
-		loadAssets: async (
-			manifest: DictionarySeedManifest,
-		): Promise<DictionarySeedAssets> => {
-			const [lemmaIndex, dictShards] = await Promise.all([
-				loadLemmaIndex(),
-				Promise.all(
-					manifest.metadata.artifactSha256.dictShards.map(
-						(_, index: number): Promise<readonly DictionaryEntry[]> =>
-							loadDictShard(index),
-					),
+		const [lemmaIndex, dictShards] = await Promise.all([
+			fetchJsonAsset(LEMMA_INDEX_PUBLIC_PATH, LemmaIndexSchema),
+			Promise.all(
+				shardPaths.map((shardPath) =>
+					fetchJsonAsset(shardPath, DictionaryEntryArraySchema),
 				),
-			]);
+			),
+		]);
 
-			return {
-				assetFingerprint: manifest.assetFingerprint,
-				dictEntries: dictShards.flat(),
-				lemmaEntries: toLemmaEntries(lemmaIndex),
-				metadata: manifest.metadata,
-			};
-		},
-		loadManifest: async (): Promise<DictionarySeedManifest> => {
-			const metadataText = await fetchAssetText(DICTIONARY_META_PUBLIC_PATH);
-			const metadata = DictionaryBuildMetadataSchema.parse(
-				JSON.parse(metadataText),
-			);
-
-			return {
-				assetFingerprint: await sha256HexOfText(metadataText),
-				metadata: metadata,
-			};
-		},
+		return {
+			dictEntries: dictShards.flat(),
+			lemmaEntries: toLemmaEntries(lemmaIndex),
+		};
 	};
+
+	const loadManifest = async (): Promise<DictionarySeedManifest> => {
+		const metadataText = await fetchAssetText(DICTIONARY_META_PUBLIC_PATH);
+
+		return {
+			assetFingerprint: await sha256HexOfText(metadataText),
+			metadata: DictionaryBuildMetadataSchema.parse(JSON.parse(metadataText)),
+		};
+	};
+
+	return { loadAssets: loadAssets, loadManifest: loadManifest };
 }

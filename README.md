@@ -31,13 +31,16 @@ LLM endpoint.
 
 ### From Firefox Add-ons (recommended)
 
-Install from the [Word Buddy listing on addons.mozilla.org](https://addons.mozilla.org/firefox/addon/word-buddy/).
+Install from the
+[Word Buddy listing on addons.mozilla.org](https://addons.mozilla.org/firefox/addon/word-buddy/).
 Future versions update automatically via AMO.
 
 ### Unpacked (for hacking)
 
 ```sh
 bun install
+bun run fetch:dict
+bun run build:dict
 bun run build:firefox
 ```
 
@@ -75,23 +78,24 @@ The toolbar popup exposes a per-host Pause/Resume toggle for the current tab.
 ### Dictionary data
 
 The shipped dictionary is built from two public data sets that are **not**
-checked into the repo:
+checked into the repo: [ECDict](https://github.com/skywind3000/ECDICT) and
+[lemma.en](https://github.com/skywind3000/lemma.en). `scripts/dict/sources.ts`
+pins each one to an upstream commit and a SHA-256.
 
-1. [ECDict](https://github.com/skywind3000/ECDICT) — place `ecdict.csv` at
-   `data/raw/ecdict.csv`.
-2. [lemma.en](https://github.com/skywind3000/lemma.en) — place `lemma.en.txt`
-   at `data/raw/lemma.en.txt`.
-3. Run `bun run build:dict` to generate sharded dictionary artifacts under
-   `public/data/` (`dict-0.json`, `dict-1.json`, ... plus `lemma-index.json`
-   and `dict-meta.json`). Shards are sized to stay under AMO's 5MB per-file
-   linter threshold; the exact count is recorded in `dictShardCount` of
-   `dict-meta.json`.
+1. `bun run fetch:dict` downloads them into `data/raw/`, or verifies the
+   copies already there.
+2. `bun run build:dict` checks `data/raw/` against the same hashes, then
+   generates sharded dictionary artifacts under `public/data/` (`dict-0.json`,
+   `dict-1.json`, ... plus `lemma-index.json` and `dict-meta.json`). Shards
+   are sized to stay under AMO's 5MB per-file linter threshold; the exact
+   count is recorded in `dictShardCount` of `dict-meta.json`.
 
 ### Reproducing an AMO submission build
 
 ```sh
-bun install
-bun run build:dict      # only needed if public/data/ is missing
+bun install --frozen-lockfile
+bun run fetch:dict
+bun run build:dict
 bun run zip             # produces .output/*-firefox.zip and *-sources.zip
 ```
 
@@ -99,6 +103,7 @@ bun run zip             # produces .output/*-firefox.zip and *-sources.zip
 
 ```sh
 bun install              # install deps (runs `wxt prepare` via postinstall)
+bun run fetch:dict       # download or verify the pinned dictionary sources
 bun run build:dict       # rebuild dictionary artifacts from data/raw/
 bun run build:firefox    # build unpacked extension into .output/firefox-mv3
 bun run zip              # build + pack xpi and sources zip for AMO

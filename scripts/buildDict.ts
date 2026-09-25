@@ -1,6 +1,4 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 
 import {
 	DICTIONARY_META_PUBLIC_PATH,
@@ -12,7 +10,7 @@ import type {
 	DictionaryBuildOutputCounts,
 	DictionaryEntry,
 } from "../src/shared/dictionary/types";
-import { toErrorMessage } from "../src/shared/utils/errors";
+import { createNodeSourceFileIo } from "./dict/nodeSourceFileIo";
 import {
 	buildDictionaryEntries,
 	buildLemmaIndex,
@@ -20,10 +18,11 @@ import {
 	createDictionaryBuildMetadata,
 	parseEcdictCsv,
 } from "./dict/pipeline";
+import { readVerifiedSource, type SourceFileIo } from "./dict/sourceFiles";
+import { DICTIONARY_SOURCES, type DictionarySource } from "./dict/sources";
 
-const RAW_ECDICT_URL = new URL("../data/raw/ecdict.csv", import.meta.url);
-const RAW_LEMMA_URL = new URL("../data/raw/lemma.en.txt", import.meta.url);
-const PUBLIC_DIRECTORY_URL = new URL("../public/", import.meta.url);
+const REPOSITORY_ROOT_URL = new URL("../", import.meta.url);
+const PUBLIC_DIRECTORY_URL = new URL("public/", REPOSITORY_ROOT_URL);
 
 const DICT_SHARD_BYTE_LIMIT = 4 * 1024 * 1024;
 
@@ -31,20 +30,11 @@ function publicFileUrl(publicPath: string): URL {
 	return new URL(`.${publicPath}`, PUBLIC_DIRECTORY_URL);
 }
 
-function sha256(content: string): string {
-	return createHash("sha256").update(content).digest("hex");
-}
-
-async function readRequiredTextFile(fileUrl: URL): Promise<string> {
-	try {
-		return await readFile(fileUrl, "utf8");
-	} catch (error) {
-		const filePath = fileURLToPath(fileUrl);
-
-		throw new Error(
-			`Missing required dictionary source file: ${filePath}. Put the raw ECDict files in data/raw/ and rerun bun run build:dict. Original error: ${toErrorMessage(error)}`,
-		);
-	}
+async function readSourceText(
+	source: DictionarySource,
+	io: SourceFileIo,
+): Promise<string> {
+	return new TextDecoder().decode(await readVerifiedSource(source, io));
 }
 
 function serializeJson(value: unknown, pretty = false): string {
@@ -113,9 +103,10 @@ async function writeArtifacts(
 }
 
 async function main(): Promise<void> {
+	const io = createNodeSourceFileIo(REPOSITORY_ROOT_URL);
 	const [ecdictText, lemmaText] = await Promise.all([
-		readRequiredTextFile(RAW_ECDICT_URL),
-		readRequiredTextFile(RAW_LEMMA_URL),
+		readSourceText(DICTIONARY_SOURCES.ecdict, io),
+		readSourceText(DICTIONARY_SOURCES.lemma, io),
 	]);
 	const parsedRows = parseEcdictCsv(ecdictText);
 	const dictionaryBuild = buildDictionaryEntries(parsedRows);
@@ -141,8 +132,8 @@ async function main(): Promise<void> {
 	const metadata = createDictionaryBuildMetadata(
 		parsedRows.length,
 		countLemmaRows(lemmaText),
-		sha256(ecdictText),
-		sha256(lemmaText),
+		DICTIONARY_SOURCES.ecdict.sha256,
+		DICTIONARY_SOURCES.lemma.sha256,
 		outputCounts,
 		dictShards.length,
 	);

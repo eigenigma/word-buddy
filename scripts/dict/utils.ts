@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export const QUALITY_SIGNAL_FIELDS = [
 	"bnc",
 	"frq",
@@ -57,4 +59,8 @@ export function compareCodeUnits(left: string, right: string): number {
 
 export function sortStrings(values: Iterable<string>): readonly string[] {
 	return [...new Set(values)].sort(compareCodeUnits);
+}
+
+export function sha256Hex(content: string | Uint8Array): string {
+	return createHash("sha256").update(content).digest("hex");
 }

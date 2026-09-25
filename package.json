@@ -6,6 +6,7 @@
 	"type": "module",
 	"scripts": {
 		"build": "wxt build",
+		"fetch:dict": "bun run ./scripts/fetchDict.ts",
 		"build:dict": "bun run ./scripts/buildDict.ts",
 		"build:firefox": "wxt build -b firefox --mv3",
 		"zip": "wxt zip -b firefox --mv3",

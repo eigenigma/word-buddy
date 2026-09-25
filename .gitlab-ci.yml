@@ -30,13 +30,9 @@ default:
     - |
       if ! command -v bun >/dev/null 2>&1 || [ "$(bun --version)" != "$BUN_VERSION" ]; then
         apt-get update
-        apt-get install -y --no-install-recommends bash ca-certificates curl unzip ${EXTRA_APT_PACKAGES:-}
+        apt-get install -y --no-install-recommends bash ca-certificates curl unzip
         rm -rf /var/lib/apt/lists/*
         curl -fsSL https://bun.com/install | bash -s "bun-v$BUN_VERSION"
-      elif [ -n "${EXTRA_APT_PACKAGES:-}" ]; then
-        apt-get update
-        apt-get install -y --no-install-recommends ${EXTRA_APT_PACKAGES}
-        rm -rf /var/lib/apt/lists/*
       fi
     - node --version
     - bun --version
@@ -61,12 +57,8 @@ lint:
 # adding a serial stage.
 dictionary:
   stage: quality
-  variables:
-    EXTRA_APT_PACKAGES: ca-certificates curl
   script:
-    - mkdir -p data/raw
-    - curl -fL -o data/raw/ecdict.csv https://raw.githubusercontent.com/skywind3000/ECDICT/master/ecdict.csv
-    - curl -fL -o data/raw/lemma.en.txt https://raw.githubusercontent.com/skywind3000/lemma.en/master/lemma.en.txt
+    - bun run fetch:dict
     - bun run build:dict
   artifacts:
     paths:

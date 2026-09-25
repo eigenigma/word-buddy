@@ -96,12 +96,19 @@ pins each one to an upstream commit and a SHA-256.
 
 ### Reproducing an AMO submission build
 
+The sources zip submitted to AMO is `git archive` of the release commit.
+Extract it, then, with the prerequisites above:
+
 ```sh
 bun install --frozen-lockfile
 bun run fetch:dict
 bun run build:dict
-bun run zip             # produces .output/*-firefox.zip and *-sources.zip
+bun run build:firefox
 ```
+
+`.output/firefox-mv3/` then matches the unpacked XPI file for file.
+`build:firefox` sets `LC_ALL` in its `package.json` script, so the host
+locale does not change the output.
 
 ### Commands
 
@@ -110,7 +117,8 @@ bun install              # install deps (runs `wxt prepare` via postinstall)
 bun run fetch:dict       # download or verify the pinned dictionary sources
 bun run build:dict       # rebuild dictionary artifacts from data/raw/
 bun run build:firefox    # build unpacked extension into .output/firefox-mv3
-bun run zip              # build + pack xpi and sources zip for AMO
+bun run zip              # build + pack the xpi from the working tree
+bun run package:firefox  # xpi and sources zip for AMO, rebuilt from HEAD
 bun run submit:firefox   # upload to AMO as listed (requires .env.submit)
 bun run typecheck        # tsc --noEmit
 bun run lint             # biome check .
@@ -152,8 +160,11 @@ Published to AMO as a **listed** add-on. Submission credentials live in
 JWT credentials from the
 [AMO Developer Hub](https://addons.mozilla.org/developers/addon/api/key/).
 
-1. Bump `version` in `package.json`.
-2. `bun run zip` — builds `.output/*-firefox.zip` and `.output/*-sources.zip`.
+1. Bump `version` in `package.json` and commit it.
+2. `bun run package:firefox` — on a clean working tree, writes
+   `git archive HEAD` to `.output/*-sources.zip`, rebuilds the extension
+   from that archive in a temp directory, and copies the result to
+   `.output/*-firefox.zip`.
 3. `bun run submit:firefox` — uploads to AMO; the version goes through
    review before publication.
 4. After review passes, the listing page at

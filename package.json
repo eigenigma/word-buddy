@@ -17,6 +17,7 @@
 		"build:dict": "bun run ./scripts/buildDict.ts",
 		"build:firefox": "LC_ALL=en_US.UTF-8 wxt build -b firefox --mv3",
 		"zip": "LC_ALL=en_US.UTF-8 wxt zip -b firefox --mv3",
+		"package:firefox": "bun run ./scripts/packageFirefox.ts",
 		"submit:firefox": "wxt submit --firefox-zip=.output/*-firefox.zip --firefox-sources-zip=.output/*-sources.zip --firefox-channel=listed",
 		"typecheck": "tsc --noEmit",
 		"lint": "biome check .",

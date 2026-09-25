@@ -41,6 +41,11 @@ export default defineConfig({
 			},
 		},
 	},
+	// scripts/packageFirefox.ts writes the sources zip with git archive;
+	// WXT's own globs the repo root and ignores .gitignore.
+	zip: {
+		zipSources: false,
+	},
 	vite: () => ({
 		plugins: [preact()],
 	}),

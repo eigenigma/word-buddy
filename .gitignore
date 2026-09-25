@@ -11,7 +11,7 @@ data/raw/
 public/data/
 
 node_modules
-.bun
+.mise/
 .output
 stats.html
 stats-*.json

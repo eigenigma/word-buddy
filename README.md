@@ -72,8 +72,11 @@ The toolbar popup exposes a per-host Pause/Resume toggle for the current tab.
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) 1.1 or newer
-- Firefox 115 or newer
+- [Bun](https://bun.sh) and [Node.js](https://nodejs.org) at the versions
+  pinned in `package.json` (`packageManager` and `devEngines.runtime`). With
+  [mise](https://mise.jdx.dev), `mise trust && mise install` in the repo
+  installs both.
+- Firefox 140 or newer
 
 ### Dictionary data
 

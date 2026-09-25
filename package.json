@@ -4,6 +4,13 @@
 	"private": true,
 	"version": "0.1.1",
 	"type": "module",
+	"packageManager": "bun@1.4.2",
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": "24.21.0"
+		}
+	},
 	"scripts": {
 		"build": "wxt build",
 		"fetch:dict": "bun run ./scripts/fetchDict.ts",

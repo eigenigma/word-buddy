@@ -4,9 +4,11 @@ workflow:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
 
 variables:
-  BUN_VERSION: "1.4.2"
-  BUN_INSTALL: "$CI_PROJECT_DIR/.bun"
   FORCE_COLOR: "1"
+  MISE_DATA_DIR: "$CI_PROJECT_DIR/.mise"
+  # mise.toml carries settings, which mise refuses to load from an untrusted
+  # file.
+  MISE_TRUSTED_CONFIG_PATHS: "$CI_PROJECT_DIR"
 
 stages:
   - quality
@@ -14,26 +16,33 @@ stages:
   - build
 
 default:
-  image: node:24.21.0-bookworm-slim
+  image: jdxcode/mise:2026.9.13-debian
   interruptible: true
-  cache: &bun-cache
-    key:
-      prefix: bun
-      files:
-        - bun.lock
-    paths:
-      - .bun/bin/
-      - node_modules/
-    policy: pull
+  # Separate keys, so a lockfile change doesn't re-download the toolchain and
+  # a package.json edit doesn't reinstall node_modules.
+  cache:
+    - &toolchain-cache
+      key:
+        prefix: toolchain
+        files:
+          - package.json
+          - mise.toml
+      paths:
+        - .mise/installs/
+      policy: pull
+    - &node-modules-cache
+      key:
+        prefix: node-modules
+        files:
+          - bun.lock
+      paths:
+        - node_modules/
+      policy: pull
   before_script:
-    - export PATH="$BUN_INSTALL/bin:$PATH"
-    - |
-      if ! command -v bun >/dev/null 2>&1 || [ "$(bun --version)" != "$BUN_VERSION" ]; then
-        apt-get update
-        apt-get install -y --no-install-recommends bash ca-certificates curl unzip
-        rm -rf /var/lib/apt/lists/*
-        curl -fsSL https://bun.com/install | bash -s "bun-v$BUN_VERSION"
-      fi
+    # Installs the bun and node versions pinned in package.json and
+    # regenerates the shims, which are not cached.
+    - mise install
+    - export PATH="$MISE_DATA_DIR/shims:$PATH"
     - node --version
     - bun --version
     - bun install --frozen-lockfile
@@ -43,8 +52,10 @@ typecheck:
   # bun install touches node_modules/.bin on every run, so each pull-push job
   # would re-upload the whole cache; this job is the only writer.
   cache:
-    <<: *bun-cache
-    policy: pull-push
+    - <<: *toolchain-cache
+      policy: pull-push
+    - <<: *node-modules-cache
+      policy: pull-push
   script:
     - bun run typecheck
 

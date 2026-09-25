@@ -6,6 +6,14 @@ const PATTERN_COUNT = 3000;
 const WORD_LENGTH = 8;
 const SCAN_WORD_COUNT = 1112;
 const SCAN_TEXT_MIN_LENGTH = 10_000;
+const SPARSE_MATCH_INTERVAL = 50;
+const DENSE_MATCH_INTERVAL = 2;
+
+interface ScanCase {
+	readonly expectedMatchCount: number;
+	readonly label: string;
+	readonly text: string;
+}
 
 function createDeterministicRandom(seed: number): () => number {
 	let state = seed;
@@ -35,9 +43,38 @@ const PATTERNS: readonly PatternRef[] = Array.from(
 		surface: createRandomWord(seededRandom),
 	}),
 );
-const SCAN_TEXT = Array.from({ length: SCAN_WORD_COUNT }, () =>
-	createRandomWord(seededRandom),
-).join(" ");
+const FILLER_WORDS: readonly string[] = Array.from(
+	{ length: SCAN_WORD_COUNT },
+	() => createRandomWord(seededRandom),
+);
+
+// Every matchInterval-th filler word becomes the next unused pattern surface,
+// so the hits spread across the automaton instead of repeating one path.
+function createMixedScanCase(label: string, matchInterval: number): ScanCase {
+	const words = FILLER_WORDS.map((word: string, index: number): string => {
+		if (index % matchInterval !== 0) {
+			return word;
+		}
+
+		const pattern = PATTERNS[index / matchInterval];
+		if (pattern === undefined) {
+			throw new Error(`Only ${PATTERN_COUNT} pattern surfaces to mix in.`);
+		}
+		return pattern.surface;
+	});
+
+	return {
+		expectedMatchCount: Math.ceil(FILLER_WORDS.length / matchInterval),
+		label: label,
+		text: words.join(" "),
+	};
+}
+
+const SCAN_CASES: readonly ScanCase[] = [
+	{ expectedMatchCount: 0, label: "no-match", text: FILLER_WORDS.join(" ") },
+	createMixedScanCase("sparse", SPARSE_MATCH_INTERVAL),
+	createMixedScanCase("dense", DENSE_MATCH_INTERVAL),
+];
 
 it(`builds a matcher for ${PATTERN_COUNT} wordbook surfaces`, async ({
 	bench,
@@ -49,13 +86,17 @@ it(`builds a matcher for ${PATTERN_COUNT} wordbook surfaces`, async ({
 	}).run();
 });
 
-it(`scans ${SCAN_TEXT_MIN_LENGTH} characters against ${PATTERN_COUNT} surfaces`, async ({
-	bench,
-}) => {
-	const matcher = createAhoCorasickMatcher(PATTERNS);
-	expect(SCAN_TEXT.length).toBeGreaterThanOrEqual(SCAN_TEXT_MIN_LENGTH);
+it.for(SCAN_CASES)(
+	`scans $label text of ${SCAN_TEXT_MIN_LENGTH}+ characters against ${PATTERN_COUNT} surfaces`,
+	async (scanCase: ScanCase, { bench }) => {
+		const matcher = createAhoCorasickMatcher(PATTERNS);
+		expect(scanCase.text.length).toBeGreaterThanOrEqual(SCAN_TEXT_MIN_LENGTH);
+		expect(matcher.findAll(scanCase.text)).toHaveLength(
+			scanCase.expectedMatchCount,
+		);
 
-	await bench("findAll", () => {
-		matcher.findAll(SCAN_TEXT);
-	}).run();
-});
+		await bench(`findAll ${scanCase.label}`, () => {
+			matcher.findAll(scanCase.text);
+		}).run();
+	},
+);

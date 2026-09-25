@@ -132,19 +132,12 @@ function scheduleWordbookAdd(
 	}, 0);
 }
 
-function isEventInsidePopup(
-	event: MouseEvent,
-	popupHost: SelectionPopupHost,
-): boolean {
-	return event.composedPath().includes(popupHost.shadowHost);
-}
-
 function registerDismissListeners(
 	ctx: ContentScriptContext,
 	popupHost: SelectionPopupHost,
 ): void {
 	ctx.addEventListener(document, "mousedown", (event: MouseEvent): void => {
-		if (!isEventInsidePopup(event, popupHost)) {
+		if (!popupHost.containsEvent(event)) {
 			popupHost.hide();
 		}
 	});
@@ -170,7 +163,7 @@ function registerSelectionListener(
 	popupHost: SelectionPopupHost,
 ): void {
 	ctx.addEventListener(document, "mouseup", (event: MouseEvent): void => {
-		if (isEventInsidePopup(event, popupHost)) {
+		if (popupHost.containsEvent(event)) {
 			return;
 		}
 

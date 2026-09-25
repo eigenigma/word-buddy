@@ -182,6 +182,31 @@ describe("createSelectionPopup", () => {
 		expect(ui.uiContainer.firstElementChild).toBeNull();
 	});
 
+	it("counts only events that start inside the shown popup", async () => {
+		const { ctx, popup, ui } = await createHarness();
+		const insideResults: boolean[] = [];
+		document.addEventListener(
+			"mousedown",
+			(event: MouseEvent): void => {
+				insideResults.push(popup.containsEvent(event));
+			},
+			{ signal: ctx.signal },
+		);
+		const dispatchMousedown = (target: EventTarget | null): void => {
+			target?.dispatchEvent(
+				new MouseEvent("mousedown", { bubbles: true, composed: true }),
+			);
+		};
+
+		showCardAt(popup, SELECTION_RECT);
+		dispatchMousedown(ui.uiContainer.querySelector("button"));
+		dispatchMousedown(document.body);
+		hide(popup);
+		dispatchMousedown(ui.uiContainer);
+
+		expect(insideResults).toStrictEqual([true, false, false]);
+	});
+
 	it("removes the host and the hoisted style once the context is invalidated", async () => {
 		const { ctx, popup, ui } = await createHarness();
 		showCardAt(popup, SELECTION_RECT);

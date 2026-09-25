@@ -32,8 +32,8 @@ export interface SelectionPopupDependencies {
 }
 
 export interface SelectionPopupHost {
+	readonly containsEvent: (event: Event) => boolean;
 	readonly hide: () => void;
-	readonly shadowHost: HTMLElement;
 	readonly showBubble: (selection: SelectionSnapshot) => void;
 	readonly showCard: (state: SelectionPopupState, rect: DOMRect) => void;
 }
@@ -94,8 +94,10 @@ export async function createSelectionPopup({
 	};
 
 	return {
+		// A hidden popup renders nothing, so no event can start inside it.
+		containsEvent: (event: Event): boolean =>
+			popupState.value !== null && event.composedPath().includes(ui.shadowHost),
 		hide: hide,
-		shadowHost: ui.shadowHost,
 		showBubble: (selection: SelectionSnapshot): void => {
 			show(
 				{

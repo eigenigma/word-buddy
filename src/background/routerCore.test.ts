@@ -5,7 +5,6 @@ import type { BackgroundServices } from "@/background/composition";
 import {
 	broadcastInvalidation,
 	broadcastSiteControlChanged,
-	reportBackgroundError,
 	withErrorEnvelope,
 } from "./routerCore";
 
@@ -26,30 +25,7 @@ function createBroadcastServices(
 }
 
 afterEach(() => {
-	vi.restoreAllMocks();
-	Reflect.deleteProperty(globalThis, "reportError");
-});
-
-describe("reportBackgroundError", () => {
-	it("forwards the formatted error to globalThis.reportError when available", () => {
-		const reportErrorMock = vi.fn();
-		vi.stubGlobal("reportError", reportErrorMock);
-
-		reportBackgroundError("word-buddy: test", new Error("boom"));
-
-		expect(reportErrorMock).toHaveBeenCalledTimes(1);
-		expect(reportErrorMock.mock.calls[0]?.[0]).toBeInstanceOf(Error);
-		expect(reportErrorMock.mock.calls[0]?.[0]).toHaveProperty(
-			"message",
-			"word-buddy: test: boom",
-		);
-	});
-
-	it("does nothing when globalThis.reportError is unavailable", () => {
-		expect(() => {
-			reportBackgroundError("word-buddy: test", new Error("boom"));
-		}).not.toThrow();
-	});
+	vi.unstubAllGlobals();
 });
 
 describe("broadcast helpers", () => {

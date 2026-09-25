@@ -70,15 +70,11 @@ export function defineMessageHandler<
 	};
 }
 
-export function reportBackgroundError(context: string, error: unknown): void {
-	reportGlobalError(context, error);
-}
-
 type BroadcastServices = Pick<BackgroundServices, "annotatorBroadcaster">;
 
 export function broadcastInvalidation(services: BroadcastServices): void {
 	services.annotatorBroadcaster.invalidate().catch((error: unknown): void => {
-		reportBackgroundError("word-buddy: annotator invalidation failed", error);
+		reportGlobalError("word-buddy: annotator invalidation failed", error);
 	});
 }
 
@@ -86,7 +82,7 @@ export function broadcastSiteControlChanged(services: BroadcastServices): void {
 	services.annotatorBroadcaster
 		.siteControlChanged()
 		.catch((error: unknown): void => {
-			reportBackgroundError("word-buddy: site control broadcast failed", error);
+			reportGlobalError("word-buddy: site control broadcast failed", error);
 		});
 }
 

@@ -48,7 +48,8 @@ const {
 
 vi.mock("@/background/dictionary/assets", () => ({
 	createDictionaryAssetLoader: (): object => ({
-		loadAssets: vi.fn(),
+		loadDictShards: vi.fn(),
+		loadLemmaEntries: vi.fn(),
 		loadManifest: vi.fn(),
 	}),
 }));

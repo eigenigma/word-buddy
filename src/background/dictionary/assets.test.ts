@@ -15,10 +15,17 @@ import {
 } from "./assets";
 
 const TEST_DICT_ENTRY: DictionaryEntry = createTestDictionaryEntry("agenda");
+const GO_DICT_ENTRY: DictionaryEntry = createTestDictionaryEntry("go");
 
-const TEST_MANIFEST: DictionarySeedManifest = {
+const TWO_SHARD_MANIFEST: DictionarySeedManifest = {
 	assetFingerprint: "fingerprint",
-	metadata: TEST_DICTIONARY_METADATA,
+	metadata: {
+		...TEST_DICTIONARY_METADATA,
+		artifactSha256: {
+			...TEST_DICTIONARY_METADATA.artifactSha256,
+			dictShards: ["dict-0-sha", "dict-1-sha"],
+		},
+	},
 };
 
 function createLoader(assetBodies: Readonly<Record<string, string>>): {
@@ -87,38 +94,53 @@ describe("loadManifest", () => {
 	});
 });
 
-describe("loadAssets", () => {
-	it("loads one shard per manifest hash plus the lemma index", async () => {
-		const { getUrl, loader } = createLoader({
+describe("loadDictShards", () => {
+	it("yields every shard the manifest lists, in order", async () => {
+		const { loader } = createLoader({
 			"moz-extension://id/data/dict-0.json": JSON.stringify([TEST_DICT_ENTRY]),
-			"moz-extension://id/data/lemma-index.json": JSON.stringify({
-				agendas: "agenda",
-			}),
+			"moz-extension://id/data/dict-1.json": JSON.stringify([GO_DICT_ENTRY]),
 		});
 
-		await expect(loader.loadAssets(TEST_MANIFEST)).resolves.toEqual({
-			dictEntries: [TEST_DICT_ENTRY],
-			lemmaEntries: [
-				{
-					lemma: "agenda",
-					surface: "agendas",
-				},
-			],
-		});
-		expect(getUrl.mock.calls.flat().sort()).toEqual([
-			"/data/dict-0.json",
-			"/data/lemma-index.json",
-		]);
+		await expect(
+			Array.fromAsync(loader.loadDictShards(TWO_SHARD_MANIFEST)),
+		).resolves.toEqual([[TEST_DICT_ENTRY], [GO_DICT_ENTRY]]);
 	});
 
-	it("rejects invalid dictionary asset payloads", async () => {
+	it("fetches a shard only when the consumer asks for it", async () => {
+		const { getUrl, loader } = createLoader({
+			"moz-extension://id/data/dict-0.json": JSON.stringify([TEST_DICT_ENTRY]),
+			"moz-extension://id/data/dict-1.json": JSON.stringify([GO_DICT_ENTRY]),
+		});
+		const shards = loader
+			.loadDictShards(TWO_SHARD_MANIFEST)
+			[Symbol.asyncIterator]();
+
+		await shards.next();
+
+		expect(getUrl.mock.calls).toEqual([["/data/dict-0.json"]]);
+	});
+
+	it("rejects an invalid shard payload", async () => {
 		const { loader } = createLoader({
 			"moz-extension://id/data/dict-0.json": JSON.stringify([{ word: 1 }]),
+		});
+
+		await expect(
+			Array.fromAsync(loader.loadDictShards(TWO_SHARD_MANIFEST)),
+		).rejects.toThrow();
+	});
+});
+
+describe("loadLemmaEntries", () => {
+	it("turns the lemma index into surface rows", async () => {
+		const { loader } = createLoader({
 			"moz-extension://id/data/lemma-index.json": JSON.stringify({
 				agendas: "agenda",
 			}),
 		});
 
-		await expect(loader.loadAssets(TEST_MANIFEST)).rejects.toThrow();
+		await expect(loader.loadLemmaEntries()).resolves.toEqual([
+			{ lemma: "agenda", surface: "agendas" },
+		]);
 	});
 });

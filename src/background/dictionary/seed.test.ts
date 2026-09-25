@@ -4,30 +4,36 @@ import type {
 	DictionaryEntry,
 	LemmaEntry,
 } from "../../shared/dictionary/types";
-import { createTestDictionaryEntry } from "../../test-helpers/dictionaryFixtures";
+import {
+	createTestDictionaryEntry,
+	type DictionaryRows,
+} from "../../test-helpers/dictionaryFixtures";
 import { TEST_DICTIONARY_METADATA } from "../../test-helpers/dictionaryMetadata";
 
 import {
-	type DictionarySeedAssets,
+	type DictionaryAssetLoader,
 	type DictionarySeedManifest,
 	SEED_FORMAT_VERSION,
 } from "./assets";
 import {
 	createDictionarySeedService,
-	type DictionarySeedRepository,
 	type DictionarySeedService,
 	type DictionarySeedState,
-	type DictionarySeedStateStorage,
 } from "./seed";
 
-const TEST_MANIFEST: DictionarySeedManifest = {
-	assetFingerprint: "asset-fingerprint",
-	metadata: TEST_DICTIONARY_METADATA,
-};
-
-const TEST_DICT_ENTRIES: readonly DictionaryEntry[] = [
+const FIRST_SHARD: readonly DictionaryEntry[] = [
 	createTestDictionaryEntry("agenda"),
 ];
+const LAST_SHARD: readonly DictionaryEntry[] = [
+	createTestDictionaryEntry("run"),
+];
+const TEST_SHARDS: readonly (readonly DictionaryEntry[])[] = [
+	FIRST_SHARD,
+	[createTestDictionaryEntry("go")],
+	LAST_SHARD,
+];
+
+const TEST_DICT_ENTRIES: readonly DictionaryEntry[] = TEST_SHARDS.flat();
 
 const TEST_LEMMA_ENTRIES: readonly LemmaEntry[] = [
 	{
@@ -36,10 +42,30 @@ const TEST_LEMMA_ENTRIES: readonly LemmaEntry[] = [
 	},
 ];
 
-const TEST_ASSETS: DictionarySeedAssets = {
-	dictEntries: TEST_DICT_ENTRIES,
-	lemmaEntries: TEST_LEMMA_ENTRIES,
+const TEST_MANIFEST: DictionarySeedManifest = {
+	assetFingerprint: "asset-fingerprint",
+	metadata: TEST_DICTIONARY_METADATA,
 };
+
+type ShardSource = () => AsyncIterable<readonly DictionaryEntry[]>;
+
+async function* yieldTestShards(): AsyncGenerator<readonly DictionaryEntry[]> {
+	yield* TEST_SHARDS;
+}
+
+function failAtShardOnce(failingIndex: number, error: Error): ShardSource {
+	let failed = false;
+
+	return async function* (): AsyncGenerator<readonly DictionaryEntry[]> {
+		for (const [shardIndex, shard] of TEST_SHARDS.entries()) {
+			if (shardIndex === failingIndex && !failed) {
+				failed = true;
+				throw error;
+			}
+			yield shard;
+		}
+	};
+}
 
 function createMatchingSeedState(): DictionarySeedState {
 	return {
@@ -48,199 +74,206 @@ function createMatchingSeedState(): DictionarySeedState {
 	};
 }
 
-interface InMemoryRepositoryState {
-	clearAllCalls: number;
+interface SeedHarnessOptions extends Partial<DictionaryRows> {
+	readonly loadDictShards?: ShardSource;
+	readonly loadManifest?: DictionaryAssetLoader["loadManifest"];
+	readonly seedState?: DictionarySeedState | null;
+}
+
+interface SeedHarnessState {
 	dictEntries: readonly DictionaryEntry[];
+	readonly events: string[];
 	lemmaEntries: readonly LemmaEntry[];
-}
-
-interface InMemorySeedStateStorageState {
 	seedState: DictionarySeedState | null;
-	writeCalls: number;
 }
 
-function createInMemoryRepository(
-	initialState: {
-		readonly dictEntries?: readonly DictionaryEntry[];
-		readonly lemmaEntries?: readonly LemmaEntry[];
-	} = {},
-): {
-	readonly repository: DictionarySeedRepository;
-	readonly state: InMemoryRepositoryState;
-} {
-	const state: InMemoryRepositoryState = {
-		clearAllCalls: 0,
-		dictEntries: initialState.dictEntries ?? [],
-		lemmaEntries: initialState.lemmaEntries ?? [],
-	};
-
-	return {
-		repository: {
-			clearAll: async (): Promise<void> => {
-				state.clearAllCalls += 1;
-				state.dictEntries = [];
-				state.lemmaEntries = [];
-			},
-			isPopulated: async (): Promise<boolean> =>
-				state.dictEntries.length > 0 && state.lemmaEntries.length > 0,
-			putDictEntries: async (
-				entries: readonly DictionaryEntry[],
-			): Promise<void> => {
-				state.dictEntries = [...state.dictEntries, ...entries];
-			},
-			putLemmaEntries: async (
-				entries: readonly LemmaEntry[],
-			): Promise<void> => {
-				state.lemmaEntries = [...state.lemmaEntries, ...entries];
-			},
-		},
-		state: state,
-	};
+function countEvents(state: SeedHarnessState, event: string): number {
+	return state.events.filter((logged) => logged === event).length;
 }
 
-function createInMemorySeedStateStorage(
-	initialSeedState: DictionarySeedState | null = null,
-): {
-	readonly state: InMemorySeedStateStorageState;
-	readonly storage: DictionarySeedStateStorage;
-} {
-	const state: InMemorySeedStateStorageState = {
-		seedState: initialSeedState,
-		writeCalls: 0,
-	};
-
-	return {
-		state: state,
-		storage: {
-			clearState: async (): Promise<void> => {
-				state.seedState = null;
-			},
-			readState: async (): Promise<DictionarySeedState | null> =>
-				state.seedState,
-			writeState: async (seedState: DictionarySeedState): Promise<void> => {
-				state.seedState = seedState;
-				state.writeCalls += 1;
-			},
-		},
-	};
+function listShardLoads(state: SeedHarnessState): readonly string[] {
+	return state.events.filter((logged) => logged.startsWith("load shard"));
 }
 
-function createSeedServiceHarness(
-	options: {
-		readonly dictEntries?: readonly DictionaryEntry[];
-		readonly lemmaEntries?: readonly LemmaEntry[];
-		readonly loadAssets?: (
-			manifest: DictionarySeedManifest,
-		) => Promise<DictionarySeedAssets>;
-		readonly loadManifest?: () => Promise<DictionarySeedManifest>;
-		readonly seedState?: DictionarySeedState | null;
-	} = {},
-): {
+function createSeedServiceHarness(options: SeedHarnessOptions = {}): {
 	readonly createService: () => DictionarySeedService;
-	readonly loadAssetsCalls: { current: number };
-	readonly loadManifestCalls: { current: number };
-	readonly repository: InMemoryRepositoryState;
-	readonly seedState: InMemorySeedStateStorageState;
 	readonly service: DictionarySeedService;
+	readonly state: SeedHarnessState;
 } {
-	const loadManifestCalls = { current: 0 };
-	const loadAssetsCalls = { current: 0 };
-	const repository = createInMemoryRepository({
-		...(options.dictEntries === undefined
-			? {}
-			: { dictEntries: options.dictEntries }),
-		...(options.lemmaEntries === undefined
-			? {}
-			: { lemmaEntries: options.lemmaEntries }),
-	});
-	const storage = createInMemorySeedStateStorage(options.seedState ?? null);
+	const state: SeedHarnessState = {
+		dictEntries: options.dictEntries ?? [],
+		events: [],
+		lemmaEntries: options.lemmaEntries ?? [],
+		seedState: options.seedState ?? null,
+	};
+	const loadDictShards = options.loadDictShards ?? yieldTestShards;
+	const loadManifest =
+		options.loadManifest ??
+		(async (): Promise<DictionarySeedManifest> => TEST_MANIFEST);
 
 	const createService = (): DictionarySeedService =>
 		createDictionarySeedService({
 			assetLoader: {
-				loadAssets: async (
-					manifest: DictionarySeedManifest,
-				): Promise<DictionarySeedAssets> => {
-					loadAssetsCalls.current += 1;
-					return await (options.loadAssets?.(manifest) ??
-						Promise.resolve(TEST_ASSETS));
+				loadDictShards: async function* (): AsyncGenerator<
+					readonly DictionaryEntry[]
+				> {
+					let shardIndex = 0;
+					for await (const shard of loadDictShards()) {
+						state.events.push(`load shard ${shardIndex}`);
+						shardIndex += 1;
+						yield shard;
+					}
+				},
+				loadLemmaEntries: async (): Promise<readonly LemmaEntry[]> => {
+					state.events.push("load lemma");
+					return TEST_LEMMA_ENTRIES;
 				},
 				loadManifest: async (): Promise<DictionarySeedManifest> => {
-					loadManifestCalls.current += 1;
-					return await (options.loadManifest?.() ??
-						Promise.resolve(TEST_MANIFEST));
+					state.events.push("load manifest");
+					return await loadManifest();
 				},
 			},
-			repository: repository.repository,
-			storage: storage.storage,
+			repository: {
+				clearAll: async (): Promise<void> => {
+					state.events.push("clear tables");
+					state.dictEntries = [];
+					state.lemmaEntries = [];
+				},
+				isPopulated: async (): Promise<boolean> =>
+					state.dictEntries.length > 0 && state.lemmaEntries.length > 0,
+				putDictEntries: async (
+					entries: readonly DictionaryEntry[],
+				): Promise<void> => {
+					state.events.push(
+						`put dict ${entries.map((entry) => entry.word).join(",")}`,
+					);
+					state.dictEntries = [...state.dictEntries, ...entries];
+				},
+				putLemmaEntries: async (
+					entries: readonly LemmaEntry[],
+				): Promise<void> => {
+					state.events.push("put lemma");
+					state.lemmaEntries = [...state.lemmaEntries, ...entries];
+				},
+			},
+			storage: {
+				clearState: async (): Promise<void> => {
+					state.events.push("clear state");
+					state.seedState = null;
+				},
+				readState: async (): Promise<DictionarySeedState | null> =>
+					state.seedState,
+				writeState: async (seedState: DictionarySeedState): Promise<void> => {
+					state.events.push("write state");
+					state.seedState = seedState;
+				},
+			},
 		});
 
 	return {
 		createService: createService,
-		loadAssetsCalls: loadAssetsCalls,
-		loadManifestCalls: loadManifestCalls,
-		repository: repository.state,
-		seedState: storage.state,
 		service: createService(),
+		state: state,
 	};
 }
 
-describe("createDictionarySeedService", () => {
-	it("seeds the tables and records the state after loading manifest and assets", async () => {
-		const harness = createSeedServiceHarness();
+describe("createDictionarySeedService seeding", () => {
+	it("seeds every shard and the lemma rows, then records the state", async () => {
+		const { service, state } = createSeedServiceHarness();
 
-		await harness.service.ensureSeeded();
+		await service.ensureSeeded();
 
-		expect(harness.loadManifestCalls.current).toBe(1);
-		expect(harness.loadAssetsCalls.current).toBe(1);
-		expect(harness.repository.clearAllCalls).toBe(1);
-		expect(harness.repository.dictEntries).toEqual(TEST_DICT_ENTRIES);
-		expect(harness.repository.lemmaEntries).toEqual(TEST_LEMMA_ENTRIES);
-		expect(harness.seedState.seedState).toEqual(createMatchingSeedState());
+		expect(state.dictEntries).toEqual(TEST_DICT_ENTRIES);
+		expect(state.lemmaEntries).toEqual(TEST_LEMMA_ENTRIES);
+		expect(state.seedState).toEqual(createMatchingSeedState());
 	});
 
-	it("skips when the fingerprint and format version still match", async () => {
-		const harness = createSeedServiceHarness({
-			dictEntries: TEST_DICT_ENTRIES,
-			lemmaEntries: TEST_LEMMA_ENTRIES,
-			loadAssets: async (): Promise<DictionarySeedAssets> => {
-				throw new Error("loadAssets should not run when seeding is skipped");
+	it("writes each shard before loading the next and records the state last", async () => {
+		const { service, state } = createSeedServiceHarness();
+
+		await service.ensureSeeded();
+
+		expect(state.events).toEqual([
+			"load manifest",
+			"clear state",
+			"clear tables",
+			"load shard 0",
+			"put dict agenda",
+			"load shard 1",
+			"put dict go",
+			"load shard 2",
+			"put dict run",
+			"load lemma",
+			"put lemma",
+			"write state",
+		]);
+	});
+
+	it("resolves no caller before the last row is written", async () => {
+		const reachedLastShard = Promise.withResolvers<void>();
+		const lastShard = Promise.withResolvers<readonly DictionaryEntry[]>();
+		const { service, state } = createSeedServiceHarness({
+			loadDictShards: async function* (): AsyncGenerator<
+				readonly DictionaryEntry[]
+			> {
+				yield* TEST_SHARDS.slice(0, -1);
+				reachedLastShard.resolve();
+				yield await lastShard.promise;
 			},
-			seedState: createMatchingSeedState(),
+		});
+		const settledCallers: string[] = [];
+		const firstCaller = service.ensureSeeded().then(() => {
+			settledCallers.push("first");
+		});
+		const secondCaller = service.ensureSeeded().then(() => {
+			settledCallers.push("second");
 		});
 
-		await harness.service.ensureSeeded();
+		await reachedLastShard.promise;
+		expect(settledCallers).toEqual([]);
+		expect(state.seedState).toBeNull();
 
-		expect(harness.loadManifestCalls.current).toBe(1);
-		expect(harness.loadAssetsCalls.current).toBe(0);
-		expect(harness.repository.clearAllCalls).toBe(0);
-		expect(harness.seedState.writeCalls).toBe(0);
+		lastShard.resolve(LAST_SHARD);
+		await Promise.all([firstCaller, secondCaller]);
+		expect(settledCallers).toEqual(["first", "second"]);
+		expect(state.seedState).toEqual(createMatchingSeedState());
 	});
 
 	it("runs the seed once for concurrent and later callers", async () => {
-		const harness = createSeedServiceHarness();
+		const { service, state } = createSeedServiceHarness();
 
-		await Promise.all([
-			harness.service.ensureSeeded(),
-			harness.service.ensureSeeded(),
-		]);
-		await harness.service.ensureSeeded();
+		await Promise.all([service.ensureSeeded(), service.ensureSeeded()]);
+		await service.ensureSeeded();
 
-		expect(harness.loadManifestCalls.current).toBe(1);
-		expect(harness.loadAssetsCalls.current).toBe(1);
+		expect(countEvents(state, "load manifest")).toBe(1);
+		expect(listShardLoads(state)).toHaveLength(TEST_SHARDS.length);
+	});
+});
+
+describe("createDictionarySeedService skip and reseed", () => {
+	it("skips when the fingerprint and format version still match", async () => {
+		const { service, state } = createSeedServiceHarness({
+			dictEntries: TEST_DICT_ENTRIES,
+			lemmaEntries: TEST_LEMMA_ENTRIES,
+			seedState: createMatchingSeedState(),
+		});
+
+		await service.ensureSeeded();
+
+		expect(state.events).toEqual(["load manifest"]);
 	});
 
 	it("reseeds when the tables are not populated even though the stored seed state matches", async () => {
-		const harness = createSeedServiceHarness({
+		const { service, state } = createSeedServiceHarness({
 			dictEntries: TEST_DICT_ENTRIES,
 			seedState: createMatchingSeedState(),
 		});
 
-		await harness.service.ensureSeeded();
+		await service.ensureSeeded();
 
-		expect(harness.loadAssetsCalls.current).toBe(1);
-		expect(harness.repository.clearAllCalls).toBe(1);
-		expect(harness.repository.lemmaEntries).toEqual(TEST_LEMMA_ENTRIES);
+		expect(countEvents(state, "clear tables")).toBe(1);
+		expect(state.dictEntries).toEqual(TEST_DICT_ENTRIES);
+		expect(state.lemmaEntries).toEqual(TEST_LEMMA_ENTRIES);
 	});
 
 	it("reseeds when a rebuilt artifact changed the manifest fingerprint", async () => {
@@ -248,7 +281,7 @@ describe("createDictionarySeedService", () => {
 			...TEST_MANIFEST,
 			assetFingerprint: "rebuilt-asset-fingerprint",
 		};
-		const harness = createSeedServiceHarness({
+		const { service, state } = createSeedServiceHarness({
 			dictEntries: TEST_DICT_ENTRIES,
 			lemmaEntries: TEST_LEMMA_ENTRIES,
 			loadManifest: async (): Promise<DictionarySeedManifest> =>
@@ -256,17 +289,17 @@ describe("createDictionarySeedService", () => {
 			seedState: createMatchingSeedState(),
 		});
 
-		await harness.service.ensureSeeded();
+		await service.ensureSeeded();
 
-		expect(harness.loadAssetsCalls.current).toBe(1);
-		expect(harness.seedState.seedState).toEqual({
+		expect(listShardLoads(state)).toHaveLength(TEST_SHARDS.length);
+		expect(state.seedState).toEqual({
 			assetFingerprint: rebuiltManifest.assetFingerprint,
 			seedFormatVersion: SEED_FORMAT_VERSION,
 		});
 	});
 
 	it("reseeds when the stored seed format version is stale", async () => {
-		const harness = createSeedServiceHarness({
+		const { service, state } = createSeedServiceHarness({
 			dictEntries: TEST_DICT_ENTRIES,
 			lemmaEntries: TEST_LEMMA_ENTRIES,
 			seedState: {
@@ -275,46 +308,42 @@ describe("createDictionarySeedService", () => {
 			},
 		});
 
-		await harness.service.ensureSeeded();
+		await service.ensureSeeded();
 
-		expect(harness.loadAssetsCalls.current).toBe(1);
-		expect(harness.seedState.seedState).toEqual(createMatchingSeedState());
+		expect(listShardLoads(state)).toHaveLength(TEST_SHARDS.length);
+		expect(state.seedState).toEqual(createMatchingSeedState());
 	});
+});
 
-	it("keeps rejecting with the first failure without loading assets again", async () => {
-		const seedError = new Error("asset load failed");
-		const harness = createSeedServiceHarness({
-			loadAssets: async (): Promise<DictionarySeedAssets> => {
-				throw seedError;
-			},
+describe("createDictionarySeedService failures", () => {
+	it("keeps rejecting with the first failure without loading again", async () => {
+		const shardError = new Error("shard 1 failed");
+		const { service, state } = createSeedServiceHarness({
+			loadDictShards: failAtShardOnce(1, shardError),
 		});
 
-		await expect(harness.service.ensureSeeded()).rejects.toBe(seedError);
-		await expect(harness.service.ensureSeeded()).rejects.toBe(seedError);
+		await expect(service.ensureSeeded()).rejects.toBe(shardError);
+		const eventsAfterFailure = [...state.events];
+		await expect(service.ensureSeeded()).rejects.toBe(shardError);
 
-		expect(harness.loadManifestCalls.current).toBe(1);
-		expect(harness.loadAssetsCalls.current).toBe(1);
-		expect(harness.seedState.seedState).toBeNull();
+		expect(state.events).toEqual(eventsAfterFailure);
+		expect(countEvents(state, "load manifest")).toBe(1);
+		expect(state.seedState).toBeNull();
 	});
 
-	it("retries in a fresh service instance after a failure", async () => {
-		let failNextLoad = true;
-		const harness = createSeedServiceHarness({
-			loadAssets: async (): Promise<DictionarySeedAssets> => {
-				if (failNextLoad) {
-					failNextLoad = false;
-					throw new Error("asset load failed");
-				}
-				return TEST_ASSETS;
-			},
+	it("reseeds from scratch in a fresh service after a middle shard failed", async () => {
+		const { createService, service, state } = createSeedServiceHarness({
+			loadDictShards: failAtShardOnce(1, new Error("shard 1 failed")),
 		});
-		await expect(harness.service.ensureSeeded()).rejects.toThrow(
-			"asset load failed",
-		);
+		await expect(service.ensureSeeded()).rejects.toThrow("shard 1 failed");
+		expect(state.dictEntries).toEqual(FIRST_SHARD);
+		expect(countEvents(state, "write state")).toBe(0);
 
-		await harness.createService().ensureSeeded();
+		await createService().ensureSeeded();
 
-		expect(harness.loadAssetsCalls.current).toBe(2);
-		expect(harness.seedState.seedState).toEqual(createMatchingSeedState());
+		expect(countEvents(state, "clear tables")).toBe(2);
+		expect(state.dictEntries).toEqual(TEST_DICT_ENTRIES);
+		expect(state.lemmaEntries).toEqual(TEST_LEMMA_ENTRIES);
+		expect(state.seedState).toEqual(createMatchingSeedState());
 	});
 });

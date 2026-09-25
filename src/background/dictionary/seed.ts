@@ -86,19 +86,17 @@ async function performSeed(
 		return;
 	}
 
-	const assets = await dependencies.assetLoader.loadAssets(manifest);
 	await dependencies.storage.clearState();
 	await dependencies.repository.clearAll();
-	await Promise.all([
-		seedEntriesInChunks(
-			assets.dictEntries,
-			dependencies.repository.putDictEntries,
-		),
-		seedEntriesInChunks(
-			assets.lemmaEntries,
-			dependencies.repository.putLemmaEntries,
-		),
-	]);
+	// One parsed shard in memory at a time, fetched and parsed outside the
+	// write transactions.
+	for await (const shard of dependencies.assetLoader.loadDictShards(manifest)) {
+		await seedEntriesInChunks(shard, dependencies.repository.putDictEntries);
+	}
+	await seedEntriesInChunks(
+		await dependencies.assetLoader.loadLemmaEntries(),
+		dependencies.repository.putLemmaEntries,
+	);
 	await dependencies.storage.writeState(currentSeedState);
 }
 

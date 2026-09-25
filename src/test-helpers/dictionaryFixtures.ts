@@ -1,9 +1,13 @@
-import type { DictionarySeedAssets } from "../background/dictionary/assets";
 import type {
 	DictionaryEntryRepository,
 	LemmaRepository,
 } from "../background/dictionary/repositories";
-import type { DictionaryEntry } from "../shared/dictionary/types";
+import type { DictionaryEntry, LemmaEntry } from "../shared/dictionary/types";
+
+export interface DictionaryRows {
+	readonly dictEntries: readonly DictionaryEntry[];
+	readonly lemmaEntries: readonly LemmaEntry[];
+}
 
 export function createTestDictionaryEntry(
 	word: string,
@@ -29,7 +33,7 @@ export function createTestDictionaryEntry(
 export function createInMemoryDictionaryRepositories({
 	dictEntries,
 	lemmaEntries,
-}: DictionarySeedAssets): {
+}: DictionaryRows): {
 	readonly dictRepository: DictionaryEntryRepository;
 	readonly lemmaRepository: LemmaRepository;
 } {

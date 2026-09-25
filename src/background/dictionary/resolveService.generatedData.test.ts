@@ -2,12 +2,12 @@ import { readFile } from "node:fs/promises";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { createInMemoryDictionaryRepositories } from "@/test-helpers/dictionaryFixtures";
-
 import {
-	createDictionaryAssetLoader,
-	type DictionarySeedAssets,
-} from "./assets";
+	createInMemoryDictionaryRepositories,
+	type DictionaryRows,
+} from "@/test-helpers/dictionaryFixtures";
+
+import { createDictionaryAssetLoader } from "./assets";
 import {
 	createDictionaryResolveService,
 	type DictionaryResolveService,
@@ -19,14 +19,19 @@ async function readPublicAsset(assetUrl: string): Promise<Response> {
 	return new Response(await readFile(new URL(assetUrl), "utf8"));
 }
 
-async function loadGeneratedDictionary(): Promise<DictionarySeedAssets> {
+async function loadGeneratedDictionary(): Promise<DictionaryRows> {
 	const loader = createDictionaryAssetLoader({
 		fetch: readPublicAsset,
 		getUrl: (assetPath: string): string =>
 			new URL(`.${assetPath}`, PUBLIC_DIRECTORY).href,
 	});
 	try {
-		return await loader.loadAssets(await loader.loadManifest());
+		const manifest = await loader.loadManifest();
+		const [shards, lemmaEntries] = await Promise.all([
+			Array.fromAsync(loader.loadDictShards(manifest)),
+			loader.loadLemmaEntries(),
+		]);
+		return { dictEntries: shards.flat(), lemmaEntries: lemmaEntries };
 	} catch (error) {
 		throw new Error(
 			"Cannot load the generated dictionary from public/data. Run `bun run fetch:dict && bun run build:dict` first.",

@@ -13,7 +13,7 @@ export const EXCHANGE_CODES = [
 
 export type ExchangeCode = (typeof EXCHANGE_CODES)[number];
 
-export const DICTIONARY_METADATA_SCHEMA_VERSION = 2;
+export const DICTIONARY_METADATA_SCHEMA_VERSION = 3;
 
 export interface DictionaryFrequencyMetadata {
 	readonly bnc: number | null;
@@ -64,7 +64,6 @@ export interface DictionaryBuildOutputCounts {
 	readonly lemmaExchangeMappings: number;
 	readonly lemmaEntries: number;
 	readonly lemmaPrimaryMappings: number;
-	readonly lemmaSelfMappings: number;
 	readonly lemmaSkippedMissingDictionary: number;
 	readonly rejectedRows: DictionaryRejectionCounts;
 }

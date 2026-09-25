@@ -23,13 +23,7 @@ function collectOutputCounts(
 ): DictionaryBuildOutputCounts {
 	return {
 		dictEntries: dictionaryBuild.entries.length,
-		lemmaConflictsSkipped: lemmaBuild.counts.lemmaConflictsSkipped,
-		lemmaEntries: lemmaBuild.counts.lemmaEntries,
-		lemmaExchangeMappings: lemmaBuild.counts.lemmaExchangeMappings,
-		lemmaPrimaryMappings: lemmaBuild.counts.lemmaPrimaryMappings,
-		lemmaSelfMappings: lemmaBuild.counts.lemmaSelfMappings,
-		lemmaSkippedMissingDictionary:
-			lemmaBuild.counts.lemmaSkippedMissingDictionary,
+		...lemmaBuild.counts,
 		rejectedRows: dictionaryBuild.rejectedRows,
 	};
 }

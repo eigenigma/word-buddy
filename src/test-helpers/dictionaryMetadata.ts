@@ -20,7 +20,6 @@ export const TEST_DICTIONARY_METADATA: DictionaryBuildMetadata = {
 		lemmaEntries: 1,
 		lemmaExchangeMappings: 0,
 		lemmaPrimaryMappings: 1,
-		lemmaSelfMappings: 1,
 		lemmaSkippedMissingDictionary: 0,
 		rejectedRows: {
 			duplicateWord: 0,

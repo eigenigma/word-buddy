@@ -95,7 +95,6 @@ const DictionaryBuildMetadataSchema: z.ZodType<DictionaryBuildMetadata> = z
 				lemmaExchangeMappings: z.number(),
 				lemmaEntries: z.number(),
 				lemmaPrimaryMappings: z.number(),
-				lemmaSelfMappings: z.number(),
 				lemmaSkippedMissingDictionary: z.number(),
 				rejectedRows: z
 					.object({

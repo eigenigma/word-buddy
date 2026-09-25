@@ -1,4 +1,7 @@
-import type { LemmaIndex } from "../../src/shared/dictionary/types";
+import type {
+	DictionaryBuildOutputCounts,
+	LemmaIndex,
+} from "../../src/shared/dictionary/types";
 import { normalizeWord } from "../../src/shared/dictionary/utils";
 import { compareCodePoints } from "../../src/shared/utils/compare";
 import type { EcdictRow } from "./ecdict";
@@ -10,14 +13,10 @@ export interface LemmaBuildResult {
 	readonly index: LemmaIndex;
 }
 
-interface LemmaCounts {
-	readonly lemmaConflictsSkipped: number;
-	readonly lemmaExchangeMappings: number;
-	readonly lemmaEntries: number;
-	readonly lemmaPrimaryMappings: number;
-	readonly lemmaSelfMappings: number;
-	readonly lemmaSkippedMissingDictionary: number;
-}
+type LemmaCounts = Omit<
+	DictionaryBuildOutputCounts,
+	"dictEntries" | "rejectedRows"
+>;
 
 type MutableLemmaCounts = {
 	-readonly [K in keyof LemmaCounts]: LemmaCounts[K];
@@ -48,7 +47,6 @@ function createLemmaCounts(): MutableLemmaCounts {
 		lemmaEntries: 0,
 		lemmaExchangeMappings: 0,
 		lemmaPrimaryMappings: 0,
-		lemmaSelfMappings: 0,
 		lemmaSkippedMissingDictionary: 0,
 	};
 }
@@ -160,11 +158,16 @@ function collectExchangeSurfaces(
 	return sortStrings(surfaces);
 }
 
-function sortLemmaIndex(index: Map<string, string>): LemmaIndex {
+// Self rows exist only to claim their surface before the exchange mappings
+// run, so an inflection with its own entry keeps it. The runtime never reads
+// them: that surface resolves through its own entry first.
+function toLemmaIndex(index: ReadonlyMap<string, string>): LemmaIndex {
 	return Object.fromEntries(
-		[...index.entries()].sort(([leftSurface], [rightSurface]): number =>
-			compareCodePoints(leftSurface, rightSurface),
-		),
+		[...index.entries()]
+			.filter(([surface, lemma]): boolean => surface !== lemma)
+			.sort(([leftSurface], [rightSurface]): number =>
+				compareCodePoints(leftSurface, rightSurface),
+			),
 	);
 }
 
@@ -183,7 +186,6 @@ function recordMappingOutcome(
 	}
 
 	if (kind === "self") {
-		counts.lemmaSelfMappings += 1;
 		return;
 	}
 
@@ -284,10 +286,11 @@ export function buildLemmaIndex(
 	applyPrimaryLemmaMappings(index, lemmaLines, wordSet, counts);
 	applySelfMappings(index, wordSet, counts);
 	applyExchangeMappings(index, rows, wordSet, counts);
-	counts.lemmaEntries = index.size;
+	const lemmaIndex = toLemmaIndex(index);
+	counts.lemmaEntries = Object.keys(lemmaIndex).length;
 
 	return {
 		counts: counts,
-		index: sortLemmaIndex(index),
+		index: lemmaIndex,
 	};
 }

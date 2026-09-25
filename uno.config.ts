@@ -1,11 +1,4 @@
-import {
-	defineConfig,
-	presetAttributify,
-	presetIcons,
-	presetWind4,
-	transformerAttributifyJsx,
-	transformerVariantGroup,
-} from "unocss";
+import { defineConfig, presetWind4 } from "unocss";
 
 // WXT hoists the @property registrations into the host page, where UnoCSS's
 // default --un-* names would collide with the page's own utilities.
@@ -30,8 +23,5 @@ export default defineConfig({
 				property: { parent: false },
 			},
 		}),
-		presetAttributify(),
-		presetIcons(),
 	],
-	transformers: [transformerVariantGroup(), transformerAttributifyJsx()],
 });

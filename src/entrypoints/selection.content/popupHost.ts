@@ -1,30 +1,18 @@
-import type { ComponentChild } from "preact";
 import { h, render } from "preact";
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 
 import type { SelectionSnapshot } from "@/shared/dom/selection";
 
-import { PopupCard } from "./PopupCard";
 import {
 	computeBubbleCoordinates,
 	computePopupCoordinates,
 	type PopupCoordinates,
 	type ViewportDimensions,
 } from "./popupLayout";
+import { SelectionPopupRoot } from "./SelectionPopupRoot";
 import type { SelectionPopupState, SelectionUiState } from "./state";
-import {
-	addError,
-	popupState,
-	resetPopupTransientState,
-	resolveInFlight,
-} from "./state";
-
-interface SelectionPopupRootProps {
-	readonly onAdd: () => void;
-	readonly onClose: () => void;
-	readonly onOpen: () => void;
-}
+import { popupState, resetPopupTransientState } from "./state";
 
 export interface SelectionPopupHost {
 	readonly hide: () => void;
@@ -40,47 +28,6 @@ function getViewportDimensions(): ViewportDimensions {
 		height: viewportWindow.innerHeight,
 		width: viewportWindow.innerWidth,
 	};
-}
-
-function renderSelectionBubble(onOpen: () => void): ComponentChild {
-	return h(
-		"button",
-		{
-			"aria-label": "Show word details",
-			className:
-				"flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white font-semibold text-[11px] tracking-wide text-slate-700 shadow-lg transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-70",
-			disabled: resolveInFlight.value,
-			onClick: onOpen,
-			type: "button",
-		},
-		resolveInFlight.value ? "..." : "WB",
-	);
-}
-
-function SelectionPopupRoot(
-	props: SelectionPopupRootProps,
-): ComponentChild | null {
-	const currentUiState = popupState.value;
-
-	if (!currentUiState) {
-		return null;
-	}
-
-	if (currentUiState.kind === "bubble") {
-		return renderSelectionBubble(props.onOpen);
-	}
-
-	const currentPopupState = currentUiState.popup;
-
-	return h(PopupCard, {
-		addError: addError.value,
-		alreadyAdded: currentPopupState.alreadyAdded,
-		entry: currentPopupState.entry,
-		lemma: currentPopupState.lemma,
-		onAdd: props.onAdd,
-		onClose: props.onClose,
-		original: currentPopupState.original,
-	});
 }
 
 function setImportantStyle(

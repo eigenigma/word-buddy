@@ -1,17 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { createExponentialRetryPolicy } from "./retryPolicy";
+import { createTextResponse } from "@/test-helpers/httpResponses";
 
-function createTextResponse(
-	body: string,
-	status: number,
-	headers?: HeadersInit,
-): Response {
-	return new Response(body, {
-		...(headers === undefined ? {} : { headers: headers }),
-		status: status,
-	});
-}
+import { createExponentialRetryPolicy } from "./retryPolicy";
 
 function createRetryPolicy(
 	sleeps: number[],

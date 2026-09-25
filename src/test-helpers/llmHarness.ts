@@ -35,24 +35,6 @@ const PASS_THROUGH_RETRY_POLICY: RetryPolicy = {
 		await request(),
 };
 
-export function createJsonResponse(payload: unknown, status = 200): Response {
-	return new Response(JSON.stringify(payload), {
-		status: status,
-		headers: {
-			"Content-Type": "application/json",
-		},
-	});
-}
-
-export function createTextResponse(body: string, status: number): Response {
-	return new Response(body, {
-		status: status,
-		headers: {
-			"Content-Type": "text/plain",
-		},
-	});
-}
-
 function createTranslationRepository(
 	database: WordBuddyUserDatabase,
 ): TranslationRepository {

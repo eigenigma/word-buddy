@@ -9,6 +9,7 @@ import {
 	WORD_BUDDY_USER_DB_NAME,
 	WordBuddyUserDatabase,
 } from "../wordbook/database";
+import { createTranslationRepository } from "./browserAdapters";
 import { computeTranslationHash, sortWordsForHash } from "./hash";
 import { createTranslationCacheService } from "./service";
 
@@ -57,25 +58,6 @@ async function resetUserDatabase(): Promise<void> {
 	}
 	openDatabases.clear();
 	await deleteWordBuddyDatabase();
-}
-
-function createCacheService(
-	database: WordBuddyUserDatabase,
-): ReturnType<typeof createTranslationCacheService> {
-	return createTranslationCacheService({
-		repository: {
-			clearAll: async (): Promise<void> => {
-				await database.translations.clear();
-			},
-			count: async (): Promise<number> => await database.translations.count(),
-			getByHash: async (
-				hash: string,
-			): Promise<TranslationCacheEntry | undefined> =>
-				await database.translations.get(hash),
-			putEntry: async (entry: TranslationCacheEntry): Promise<string> =>
-				await database.translations.put(entry),
-		},
-	});
 }
 
 afterEach(async () => {
@@ -133,7 +115,9 @@ describe("createTranslationCacheService", () => {
 			"words",
 		]);
 
-		const cacheService = createCacheService(database);
+		const cacheService = createTranslationCacheService({
+			repository: createTranslationRepository(database),
+		});
 		await expect(cacheService.get("missing-hash")).resolves.toBeNull();
 
 		await cacheService.set(TEST_TRANSLATION_ENTRY);

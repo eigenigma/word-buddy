@@ -5,14 +5,11 @@ import {
 	createParagraphTranslator,
 	type ParagraphTranslator,
 } from "../background/llm/translator";
+import { createTranslationRepository } from "../background/translations/browserAdapters";
 import { computeTranslationHash } from "../background/translations/hash";
-import {
-	createTranslationCacheService,
-	type TranslationRepository,
-} from "../background/translations/service";
+import { createTranslationCacheService } from "../background/translations/service";
 import { WordBuddyUserDatabase } from "../background/wordbook/database";
 import type { LlmSettings } from "../shared/settings/types";
-import type { TranslationCacheEntry } from "../shared/translations/types";
 
 export interface TranslatorHarness {
 	readonly database: WordBuddyUserDatabase;
@@ -34,20 +31,6 @@ const PASS_THROUGH_RETRY_POLICY: RetryPolicy = {
 	attemptFetch: async (request: () => Promise<Response>): Promise<Response> =>
 		await request(),
 };
-
-function createTranslationRepository(
-	database: WordBuddyUserDatabase,
-): TranslationRepository {
-	return {
-		clearAll: async (): Promise<void> => {
-			await database.translations.clear();
-		},
-		count: async (): Promise<number> => await database.translations.count(),
-		getByHash: async (hash: string) => await database.translations.get(hash),
-		putEntry: async (entry: TranslationCacheEntry): Promise<string> =>
-			await database.translations.put(entry),
-	};
-}
 
 export function createTranslatorHarness(
 	dependencies: LlmHarnessDependencies,

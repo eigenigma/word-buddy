@@ -1,12 +1,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import type {
-	WordbookEntry,
-	WordbookUpdatePatch,
-} from "@/shared/wordbook/types";
-
+import { createWordbookBrowserAdapter } from "./browserAdapters";
 import { userDb } from "./database";
-import { createWordbookService } from "./service";
 
 const TEST_ENTRY = {
 	addedAt: 1_700_000_000_000,
@@ -32,26 +27,6 @@ const NEWER_ENTRY = {
 	sourceUrl: null,
 } as const;
 
-function createService(): ReturnType<typeof createWordbookService> {
-	return createWordbookService({
-		repository: {
-			deleteByLemma: async (lemma: string): Promise<void> => {
-				await userDb.words.delete(lemma);
-			},
-			getByLemma: async (lemma: string): Promise<WordbookEntry | undefined> =>
-				await userDb.words.get(lemma),
-			listAll: async (): Promise<readonly WordbookEntry[]> =>
-				await userDb.words.orderBy("addedAt").reverse().toArray(),
-			putWord: async (entry: WordbookEntry): Promise<string> =>
-				await userDb.words.put(entry),
-			updateByLemma: async (
-				lemma: string,
-				patch: WordbookUpdatePatch,
-			): Promise<number> => await userDb.words.update(lemma, patch),
-		},
-	});
-}
-
 beforeEach(async () => {
 	await userDb.words.clear();
 });
@@ -66,7 +41,7 @@ afterAll(() => {
 
 describe("createWordbookService", () => {
 	it("adds, deduplicates, checks existence, removes entries, and empties the list", async () => {
-		const service = createService();
+		const service = createWordbookBrowserAdapter();
 
 		await expect(service.addWord(TEST_ENTRY)).resolves.toEqual({ added: true });
 		await expect(service.addWord(TEST_ENTRY)).resolves.toEqual({
@@ -84,7 +59,7 @@ describe("createWordbookService", () => {
 	});
 
 	it("lists all entries in descending addedAt order", async () => {
-		const service = createService();
+		const service = createWordbookBrowserAdapter();
 
 		await service.addWord(OLDER_ENTRY);
 		await service.addWord(NEWER_ENTRY);
@@ -96,7 +71,7 @@ describe("createWordbookService", () => {
 	});
 
 	it("updates existing entries and no-ops for missing lemmas", async () => {
-		const service = createService();
+		const service = createWordbookBrowserAdapter();
 
 		await service.addWord(TEST_ENTRY);
 		await expect(

@@ -1,4 +1,5 @@
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
+import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 
 import {
 	findEnclosingBlock,
@@ -7,7 +8,7 @@ import {
 } from "@/shared/dom/selection";
 import { extractContainingSentence } from "@/shared/dom/sentence";
 import { toError } from "@/shared/utils/errors";
-import type { SelectionPopupHost } from "./popupHost";
+import type { PopupUi, PopupUiOptions, SelectionPopupHost } from "./popupHost";
 import { createSelectionPopup } from "./popupHost";
 import {
 	addResolvedSelectionToWordbook,
@@ -135,8 +136,7 @@ function isEventInsidePopup(
 	event: MouseEvent,
 	popupHost: SelectionPopupHost,
 ): boolean {
-	const shadowHost = popupHost.shadowHost;
-	return shadowHost ? event.composedPath().includes(shadowHost) : false;
+	return event.composedPath().includes(popupHost.shadowHost);
 }
 
 function registerDismissListeners(
@@ -202,7 +202,12 @@ export default defineContentScript({
 			}
 		};
 
-		popupHost = await createSelectionPopup(ctx, onAdd, onOpen);
+		popupHost = await createSelectionPopup({
+			createUi: (options: PopupUiOptions): Promise<PopupUi> =>
+				createShadowRootUi(ctx, options),
+			onAdd: onAdd,
+			onOpen: onOpen,
+		});
 		registerDismissListeners(ctx, popupHost);
 		registerSelectionListener(ctx, popupHost);
 	},

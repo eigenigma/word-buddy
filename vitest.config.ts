@@ -27,6 +27,13 @@ export default defineConfig({
 			"scripts/**/*.test.ts",
 			"*.{test,spec}.{ts,tsx}",
 		],
+		server: {
+			deps: {
+				// WXT's runtime modules read import.meta.env, which only exists in
+				// modules Vite transforms.
+				inline: ["wxt"],
+			},
+		},
 		setupFiles: ["fake-indexeddb/auto"],
 	},
 });

@@ -37,6 +37,7 @@ export default defineConfig({
 					required: ["none"],
 				},
 				id: "word-buddy@a322655.github.io",
+				strict_min_version: "140.0",
 			},
 		},
 	},

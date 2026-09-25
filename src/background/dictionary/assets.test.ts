@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type {
-	DictionaryBuildMetadata,
-	DictionaryEntry,
-} from "@/shared/dictionary/types";
+import type { DictionaryEntry } from "@/shared/dictionary/types";
+import { TEST_DICTIONARY_METADATA } from "@/test-helpers/dictionaryMetadata";
 
 import {
 	type DictionarySeedManifest,
@@ -14,43 +12,6 @@ import {
 const fetchMock = vi.fn();
 const getUrlMock = vi.fn();
 const digestMock = vi.fn();
-
-const TEST_METADATA: DictionaryBuildMetadata = {
-	dictShardCount: 1,
-	filterPolicy: {
-		lexicalWordPattern: "^[a-z]+$",
-		requireMeaning: true,
-		requireQualitySignal: ["bnc"],
-		retainLowercaseHeadwordsOnly: true,
-	},
-	outputs: {
-		dictEntries: 1,
-		duplicateDictEntriesDiscarded: 0,
-		lemmaConflictsSkipped: 0,
-		lemmaExchangeMappings: 0,
-		lemmaEntries: 1,
-		lemmaPrimaryMappings: 1,
-		lemmaSelfMappings: 1,
-		lemmaSkippedMissingDictionary: 0,
-		rejectedRows: {
-			duplicateWord: 0,
-			emptyMeaning: 0,
-			nonLexicalWord: 0,
-			weakSignal: 0,
-		},
-	},
-	schemaVersion: 1,
-	sources: {
-		ecdict: {
-			rowCount: 1,
-			sha256: "dict-sha",
-		},
-		lemma: {
-			rowCount: 1,
-			sha256: "lemma-sha",
-		},
-	},
-};
 
 const TEST_DICT_ENTRY: DictionaryEntry = {
 	definition: "meeting plan",
@@ -98,7 +59,7 @@ afterEach(() => {
 describe("loadDictionarySeedManifest", () => {
 	it("loads metadata and computes an asset fingerprint", async () => {
 		fetchMock.mockResolvedValue(
-			new Response(JSON.stringify(TEST_METADATA), {
+			new Response(JSON.stringify(TEST_DICTIONARY_METADATA), {
 				status: 200,
 			}),
 		);
@@ -106,7 +67,7 @@ describe("loadDictionarySeedManifest", () => {
 
 		await expect(loadDictionarySeedManifest()).resolves.toEqual({
 			assetFingerprint: "00abff",
-			metadata: TEST_METADATA,
+			metadata: TEST_DICTIONARY_METADATA,
 		});
 		expect(getUrlMock).toHaveBeenCalledWith("/data/dict-meta.json");
 		expect(fetchMock).toHaveBeenCalledWith(
@@ -127,7 +88,7 @@ describe("loadDictionarySeedAssets", () => {
 	it("loads dictionary shards and lemma assets using the provided manifest", async () => {
 		const manifest: DictionarySeedManifest = {
 			assetFingerprint: "fingerprint",
-			metadata: TEST_METADATA,
+			metadata: TEST_DICTIONARY_METADATA,
 		};
 		fetchMock
 			.mockResolvedValueOnce(
@@ -146,7 +107,7 @@ describe("loadDictionarySeedAssets", () => {
 					surface: "agendas",
 				},
 			],
-			metadata: TEST_METADATA,
+			metadata: TEST_DICTIONARY_METADATA,
 		});
 		expect(getUrlMock.mock.calls).toEqual([
 			["/data/lemma-index.json"],
@@ -157,7 +118,7 @@ describe("loadDictionarySeedAssets", () => {
 	it("rejects invalid dictionary asset payloads", async () => {
 		const manifest: DictionarySeedManifest = {
 			assetFingerprint: "fingerprint",
-			metadata: TEST_METADATA,
+			metadata: TEST_DICTIONARY_METADATA,
 		};
 		fetchMock
 			.mockResolvedValueOnce(

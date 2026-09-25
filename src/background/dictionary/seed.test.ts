@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import type {
-	DictionaryBuildMetadata,
 	DictionaryEntry,
 	LemmaEntry,
 } from "../../shared/dictionary/types";
+import { TEST_DICTIONARY_METADATA } from "../../test-helpers/dictionaryMetadata";
 
 import type { DictionarySeedAssets, DictionarySeedManifest } from "./assets";
 import {
@@ -16,46 +16,9 @@ import {
 
 const DB_SCHEMA_VERSION = 7;
 
-const TEST_METADATA: DictionaryBuildMetadata = {
-	dictShardCount: 1,
-	filterPolicy: {
-		lexicalWordPattern: "^[a-z]+$",
-		requireMeaning: true,
-		requireQualitySignal: ["bnc"],
-		retainLowercaseHeadwordsOnly: true,
-	},
-	outputs: {
-		dictEntries: 1,
-		duplicateDictEntriesDiscarded: 0,
-		lemmaConflictsSkipped: 0,
-		lemmaExchangeMappings: 0,
-		lemmaEntries: 1,
-		lemmaPrimaryMappings: 1,
-		lemmaSelfMappings: 1,
-		lemmaSkippedMissingDictionary: 0,
-		rejectedRows: {
-			duplicateWord: 0,
-			emptyMeaning: 0,
-			nonLexicalWord: 0,
-			weakSignal: 0,
-		},
-	},
-	schemaVersion: 1,
-	sources: {
-		ecdict: {
-			rowCount: 1,
-			sha256: "dict-sha",
-		},
-		lemma: {
-			rowCount: 1,
-			sha256: "lemma-sha",
-		},
-	},
-};
-
 const TEST_MANIFEST: DictionarySeedManifest = {
 	assetFingerprint: "asset-fingerprint",
-	metadata: TEST_METADATA,
+	metadata: TEST_DICTIONARY_METADATA,
 };
 
 const TEST_DICT_ENTRIES: readonly DictionaryEntry[] = [

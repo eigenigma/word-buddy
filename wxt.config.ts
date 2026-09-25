@@ -7,17 +7,6 @@ import {
 	LEMMA_INDEX_PUBLIC_PATH,
 } from "./src/shared/dictionary/assetPaths";
 
-type ObjectWebAccessibleResource = Exclude<
-	NonNullable<Browser.runtime.Manifest["web_accessible_resources"]>[number],
-	string
->;
-
-function isObjectWebAccessibleResources(
-	resources: NonNullable<Browser.runtime.Manifest["web_accessible_resources"]>,
-): resources is ObjectWebAccessibleResource[] {
-	return resources.every((resource): boolean => typeof resource !== "string");
-}
-
 export default defineConfig({
 	srcDir: "src",
 	modules: ["@wxt-dev/unocss"],
@@ -25,32 +14,6 @@ export default defineConfig({
 		excludeEntrypoints: ["annotator", "background"],
 	},
 	hooks: {
-		"build:manifestGenerated": (
-			wxt: Wxt,
-			manifest: Browser.runtime.Manifest,
-		): void => {
-			if (
-				wxt.config.browser !== "firefox" ||
-				wxt.config.manifestVersion !== 3
-			) {
-				return;
-			}
-
-			const resources = manifest.web_accessible_resources;
-			if (!resources) {
-				return;
-			}
-			if (!isObjectWebAccessibleResources(resources)) {
-				return;
-			}
-
-			manifest.web_accessible_resources = resources.map(
-				(resource): ObjectWebAccessibleResource => {
-					const { use_dynamic_url: _useDynamicUrl, ...nextResource } = resource;
-					return nextResource;
-				},
-			);
-		},
 		"prepare:publicPaths": (_wxt: Wxt, paths: PublicPathEntry[]): void => {
 			paths.push(DICTIONARY_META_PUBLIC_PATH, LEMMA_INDEX_PUBLIC_PATH, {
 				path: DICT_SHARD_PUBLIC_PATH_TEMPLATE,

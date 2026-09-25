@@ -1,16 +1,14 @@
 import type { BackgroundServices } from "@/background/composition";
+import type { DictionaryResolution } from "@/background/dictionary/resolveService";
 import type { DictionaryEntry } from "@/shared/dictionary/types";
 import {
 	type DictionaryExpandLemmasRequest,
 	DictionaryExpandLemmasRequestSchema,
 	type DictionaryExpandLemmasResponse,
-	type DictionaryLookupRequest,
-	DictionaryLookupRequestSchema,
-	type DictionaryLookupResponse,
 	type DictionaryLookupResult,
-	type LemmaNormalizeRequest,
-	LemmaNormalizeRequestSchema,
-	type LemmaNormalizeResponse,
+	type DictionaryResolveRequest,
+	DictionaryResolveRequestSchema,
+	type DictionaryResolveResponse,
 } from "@/shared/runtime/messages/index";
 
 import { defineMessageHandler, type MessageHandler } from "../routerCore";
@@ -26,6 +24,15 @@ function toLookupResult(entry: DictionaryEntry): DictionaryLookupResult {
 	};
 }
 
+function toResolutionResult(
+	resolution: DictionaryResolution,
+): NonNullable<DictionaryResolveResponse["resolution"]> {
+	return {
+		entry: resolution.entry === null ? null : toLookupResult(resolution.entry),
+		lemma: resolution.lemma,
+	};
+}
+
 const dictionaryExpandLemmasHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
@@ -38,35 +45,22 @@ const dictionaryExpandLemmasHandler = defineMessageHandler({
 	requestSchema: DictionaryExpandLemmasRequestSchema,
 });
 
-const dictionaryLookupHandler = defineMessageHandler({
+const dictionaryResolveHandler = defineMessageHandler({
 	handle: async (
 		services: BackgroundServices,
-		request: DictionaryLookupRequest,
-	): Promise<DictionaryLookupResponse> => {
-		const entry = await services.dictionaryQueryService.lookupExactWord(
-			request.word,
+		request: DictionaryResolveRequest,
+	): Promise<DictionaryResolveResponse> => {
+		const resolution = await services.dictionaryResolveService.resolve(
+			request.selection,
 		);
 		return {
-			entry: entry === null ? null : toLookupResult(entry),
+			resolution: resolution === null ? null : toResolutionResult(resolution),
 		};
 	},
-	requestSchema: DictionaryLookupRequestSchema,
-});
-
-const lemmaNormalizeHandler = defineMessageHandler({
-	handle: async (
-		services: BackgroundServices,
-		request: LemmaNormalizeRequest,
-	): Promise<LemmaNormalizeResponse> => ({
-		lemma: await services.dictionaryQueryService.normalizeSurface(
-			request.surface,
-		),
-	}),
-	requestSchema: LemmaNormalizeRequestSchema,
+	requestSchema: DictionaryResolveRequestSchema,
 });
 
 export const dictionaryMessageHandlers: readonly MessageHandler[] = [
 	dictionaryExpandLemmasHandler,
-	dictionaryLookupHandler,
-	lemmaNormalizeHandler,
+	dictionaryResolveHandler,
 ];

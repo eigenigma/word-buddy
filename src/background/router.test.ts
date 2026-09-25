@@ -10,6 +10,7 @@ import type {
 	WordbookUpdatePatch,
 } from "../shared/wordbook/types";
 import type { BackgroundServices } from "./composition";
+import type { DictionaryResolution } from "./dictionary/resolveService";
 import { createMessageRouter } from "./router";
 
 const TEST_DICTIONARY_ENTRY: DictionaryEntry = {
@@ -66,21 +67,20 @@ const VALID_ROUTER_CASES = [
 		},
 	},
 	{
-		message: { type: "wordBuddy.dictionary.lookup", word: "agenda" },
+		message: { selection: "Agendas", type: "wordBuddy.dictionary.resolve" },
 		response: {
-			entry: {
-				definition: TEST_DICTIONARY_ENTRY.definition,
-				frequency: TEST_DICTIONARY_ENTRY.frequency,
-				phonetic: TEST_DICTIONARY_ENTRY.phonetic,
-				pos: TEST_DICTIONARY_ENTRY.pos,
-				translation: TEST_DICTIONARY_ENTRY.translation,
-				word: TEST_DICTIONARY_ENTRY.word,
+			resolution: {
+				entry: {
+					definition: TEST_DICTIONARY_ENTRY.definition,
+					frequency: TEST_DICTIONARY_ENTRY.frequency,
+					phonetic: TEST_DICTIONARY_ENTRY.phonetic,
+					pos: TEST_DICTIONARY_ENTRY.pos,
+					translation: TEST_DICTIONARY_ENTRY.translation,
+					word: TEST_DICTIONARY_ENTRY.word,
+				},
+				lemma: "agenda",
 			},
 		},
-	},
-	{
-		message: { surface: "agendas", type: "wordBuddy.dictionary.normalize" },
-		response: { lemma: "agenda" },
 	},
 	{
 		message: { type: "wordBuddy.settings.get" },
@@ -165,8 +165,7 @@ const VALID_ROUTER_CASES = [
 
 const MALFORMED_ROUTER_MESSAGES = [
 	{ lemmas: [1], type: "wordBuddy.dictionary.expandLemmas" },
-	{ type: "wordBuddy.dictionary.lookup", word: 1 },
-	{ surface: 1, type: "wordBuddy.dictionary.normalize" },
+	{ selection: 1, type: "wordBuddy.dictionary.resolve" },
 	{ settings: { apiKey: 1 }, type: "wordBuddy.settings.set" },
 	{ input: { lemma: 1 }, type: "wordBuddy.wordbook.add" },
 	{ lemma: 1, type: "wordBuddy.wordbook.exists" },
@@ -193,11 +192,13 @@ function createServices(
 			invalidate: async (): Promise<void> => undefined,
 			siteControlChanged: async (): Promise<void> => undefined,
 		},
-		dictionaryQueryService: {
-			lookupExactWord: async (word: string): Promise<DictionaryEntry | null> =>
-				word === "agenda" ? TEST_DICTIONARY_ENTRY : null,
-			normalizeSurface: async (surface: string): Promise<string | null> =>
-				surface === "agendas" ? "agenda" : null,
+		dictionaryResolveService: {
+			resolve: async (
+				selection: string,
+			): Promise<DictionaryResolution | null> =>
+				selection === "Agendas"
+					? { entry: TEST_DICTIONARY_ENTRY, lemma: "agenda" }
+					: null,
 		},
 		dictionarySeedService: {
 			ensureSeeded: async (): Promise<void> => undefined,
@@ -286,25 +287,24 @@ describe("createMessageRouter validation", () => {
 });
 
 describe("createMessageRouter dictionary branches", () => {
-	it("maps null dictionary responses without reshaping them", async () => {
+	it("passes a null resolution and a null entry through unchanged", async () => {
 		const router = createMessageRouter(
 			createServices({
-				dictionaryQueryService: {
-					lookupExactWord: async (): Promise<DictionaryEntry | null> => null,
-					normalizeSurface: async (): Promise<string | null> => null,
+				dictionaryResolveService: {
+					resolve: async (
+						selection: string,
+					): Promise<DictionaryResolution | null> =>
+						selection === "zzz" ? { entry: null, lemma: "zzz" } : null,
 				},
 			}),
 		);
 
 		await expect(
-			router.handle({ type: "wordBuddy.dictionary.lookup", word: "missing" }),
-		).resolves.toEqual({ entry: null });
+			router.handle({ selection: " ", type: "wordBuddy.dictionary.resolve" }),
+		).resolves.toEqual({ resolution: null });
 		await expect(
-			router.handle({
-				surface: "missing",
-				type: "wordBuddy.dictionary.normalize",
-			}),
-		).resolves.toEqual({ lemma: null });
+			router.handle({ selection: "zzz", type: "wordBuddy.dictionary.resolve" }),
+		).resolves.toEqual({ resolution: { entry: null, lemma: "zzz" } });
 	});
 });
 

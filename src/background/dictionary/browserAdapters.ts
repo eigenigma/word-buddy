@@ -10,14 +10,14 @@ import {
 	createLemmaExpansionService,
 	type LemmaExpansionService,
 } from "@/background/dictionary/lemmaExpansionService";
-import {
-	createDictionaryQueryService,
-	type DictionaryQueryService,
-} from "@/background/dictionary/queryService";
 import type {
 	DictionaryEntryRepository,
 	LemmaRepository,
 } from "@/background/dictionary/repositories";
+import {
+	createDictionaryResolveService,
+	type DictionaryResolveService,
+} from "@/background/dictionary/resolveService";
 import {
 	createBrowserDictionarySeedStateStorage,
 	createDictionarySeedService,
@@ -26,7 +26,7 @@ import {
 import type { DictionaryEntry, LemmaEntry } from "@/shared/dictionary/types";
 
 interface DictionaryBrowserAdapter {
-	readonly dictionaryQueryService: DictionaryQueryService;
+	readonly dictionaryResolveService: DictionaryResolveService;
 	readonly dictionarySeedService: DictionarySeedService;
 	readonly lemmaExpansionService: LemmaExpansionService;
 }
@@ -125,7 +125,7 @@ export function createDictionaryBrowserAdapter(): DictionaryBrowserAdapter {
 	const lemmaRepository = createSeededLemmaRepository(getSeededDictionary);
 
 	return {
-		dictionaryQueryService: createDictionaryQueryService({
+		dictionaryResolveService: createDictionaryResolveService({
 			dictRepository: createSeededDictEntryRepository(getSeededDictionary),
 			lemmaRepository: lemmaRepository,
 		}),

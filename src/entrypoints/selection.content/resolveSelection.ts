@@ -1,7 +1,4 @@
-import {
-	requestLookup,
-	requestNormalize,
-} from "@/shared/runtime/dictionaryClient";
+import { requestResolve } from "@/shared/runtime/dictionaryClient";
 import type { DictionaryLookupResult } from "@/shared/runtime/messages/dictionaryMessages";
 import {
 	requestWordbookAdd,
@@ -68,15 +65,6 @@ export function getCurrentPopupState<TPopupState extends PopupStateWithLemma>(
 	return currentUiState?.kind === "card" ? currentUiState.popup : null;
 }
 
-function createFallbackLemma(original: string): string | null {
-	const trimmedOriginal = original.trim();
-	if (trimmedOriginal.length === 0) {
-		return null;
-	}
-
-	return trimmedOriginal.toLowerCase();
-}
-
 function createWordbookAddInput({
 	addedAt,
 	popupState,
@@ -130,37 +118,18 @@ export async function resolveSelectionPopupState({
 		return null;
 	}
 
-	const { entry: exactEntry } = await requestLookup(original);
-
-	if (exactEntry) {
-		const { exists } = await requestWordbookExists(exactEntry.word);
-
-		return {
-			alreadyAdded: exists,
-			context: context,
-			entry: exactEntry,
-			lemma: exactEntry.word,
-			original: original,
-		};
-	}
-
-	const { lemma } = await requestNormalize(original);
-	const nextLemma = lemma ?? createFallbackLemma(original);
-
-	if (!nextLemma) {
+	const { resolution } = await requestResolve(original);
+	if (resolution === null) {
 		return null;
 	}
 
-	const [{ entry }, { exists }] = await Promise.all([
-		requestLookup(nextLemma),
-		requestWordbookExists(nextLemma),
-	]);
+	const { exists } = await requestWordbookExists(resolution.lemma);
 
 	return {
 		alreadyAdded: exists,
 		context: context,
-		entry: entry,
-		lemma: nextLemma,
+		entry: resolution.entry,
+		lemma: resolution.lemma,
 		original: original,
 	};
 }

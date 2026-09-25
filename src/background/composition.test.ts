@@ -4,7 +4,7 @@ import { createBackgroundServices } from "./composition";
 
 const EXPECTED_SERVICE_KEYS = [
 	"annotatorBroadcaster",
-	"dictionaryQueryService",
+	"dictionaryResolveService",
 	"dictionarySeedService",
 	"lemmaExpansionService",
 	"paragraphTranslator",

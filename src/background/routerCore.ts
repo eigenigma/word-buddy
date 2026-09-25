@@ -3,8 +3,7 @@ import type { ZodType } from "zod";
 import type { BackgroundServices } from "@/background/composition";
 import type {
 	DictionaryExpandLemmasResponse,
-	DictionaryLookupResponse,
-	LemmaNormalizeResponse,
+	DictionaryResolveResponse,
 	LlmTranslateParagraphResponse,
 	LlmTranslationCacheClearResponse,
 	SettingsGetResponse,
@@ -22,8 +21,7 @@ import { reportGlobalError, toErrorMessage } from "@/shared/utils/errors";
 
 export type BackgroundResponsePayload =
 	| DictionaryExpandLemmasResponse
-	| DictionaryLookupResponse
-	| LemmaNormalizeResponse
+	| DictionaryResolveResponse
 	| LlmTranslateParagraphResponse
 	| LlmTranslationCacheClearResponse
 	| SettingsGetResponse

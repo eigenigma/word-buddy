@@ -2,14 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
 	DICTIONARY_EXPAND_LEMMAS_MESSAGE_TYPE,
-	DICTIONARY_LOOKUP_MESSAGE_TYPE,
+	DICTIONARY_RESOLVE_MESSAGE_TYPE,
 	DictionaryExpandLemmasRequestSchema,
 	DictionaryExpandLemmasResponseSchema,
-	DictionaryLookupRequestSchema,
-	DictionaryLookupResponseSchema,
-	LEMMA_NORMALIZE_MESSAGE_TYPE,
-	LemmaNormalizeRequestSchema,
-	LemmaNormalizeResponseSchema,
+	DictionaryResolveRequestSchema,
+	DictionaryResolveResponseSchema,
 } from "./dictionaryMessages";
 
 const VALID_LOOKUP_ENTRY = {
@@ -29,21 +26,25 @@ const VALID_LOOKUP_ENTRY = {
 
 const ACCEPT_CASES = [
 	[
-		"dictionary lookup request",
-		DictionaryLookupRequestSchema,
-		{ type: DICTIONARY_LOOKUP_MESSAGE_TYPE, word: "agenda" },
+		"dictionary resolve request",
+		DictionaryResolveRequestSchema,
+		{ selection: "Went", type: DICTIONARY_RESOLVE_MESSAGE_TYPE },
 	],
 	[
-		"dictionary lookup response",
-		DictionaryLookupResponseSchema,
-		{ entry: VALID_LOOKUP_ENTRY },
+		"dictionary resolve response with an entry",
+		DictionaryResolveResponseSchema,
+		{ resolution: { entry: VALID_LOOKUP_ENTRY, lemma: "agenda" } },
 	],
 	[
-		"lemma normalize request",
-		LemmaNormalizeRequestSchema,
-		{ surface: "running", type: LEMMA_NORMALIZE_MESSAGE_TYPE },
+		"dictionary resolve response without an entry",
+		DictionaryResolveResponseSchema,
+		{ resolution: { entry: null, lemma: "zzz" } },
 	],
-	["lemma normalize response", LemmaNormalizeResponseSchema, { lemma: "run" }],
+	[
+		"dictionary resolve response without a resolution",
+		DictionaryResolveResponseSchema,
+		{ resolution: null },
+	],
 	[
 		"expand lemmas request",
 		DictionaryExpandLemmasRequestSchema,
@@ -58,26 +59,28 @@ const ACCEPT_CASES = [
 
 const REJECT_CASES = [
 	[
-		"dictionary lookup request",
-		DictionaryLookupRequestSchema,
-		{ type: DICTIONARY_LOOKUP_MESSAGE_TYPE, word: 1 },
+		"dictionary resolve request",
+		DictionaryResolveRequestSchema,
+		{ selection: null, type: DICTIONARY_RESOLVE_MESSAGE_TYPE },
 	],
 	[
-		"dictionary lookup response",
-		DictionaryLookupResponseSchema,
+		"dictionary resolve response entry",
+		DictionaryResolveResponseSchema,
 		{
-			entry: {
-				...VALID_LOOKUP_ENTRY,
-				frequency: { ...VALID_LOOKUP_ENTRY.frequency, tags: [1] },
+			resolution: {
+				entry: {
+					...VALID_LOOKUP_ENTRY,
+					frequency: { ...VALID_LOOKUP_ENTRY.frequency, tags: [1] },
+				},
+				lemma: "agenda",
 			},
 		},
 	],
 	[
-		"lemma normalize request",
-		LemmaNormalizeRequestSchema,
-		{ surface: null, type: LEMMA_NORMALIZE_MESSAGE_TYPE },
+		"dictionary resolve response lemma",
+		DictionaryResolveResponseSchema,
+		{ resolution: { entry: null, lemma: null } },
 	],
-	["lemma normalize response", LemmaNormalizeResponseSchema, { lemma: 1 }],
 	[
 		"expand lemmas request",
 		DictionaryExpandLemmasRequestSchema,

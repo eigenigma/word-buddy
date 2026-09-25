@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { staticDictionaryDb } from "@/background/dictionary/database";
 import type { LemmaExpansionServiceDependencies } from "@/background/dictionary/lemmaExpansionService";
-import type { DictionaryQueryServiceDependencies } from "@/background/dictionary/queryService";
+import type { DictionaryResolveServiceDependencies } from "@/background/dictionary/resolveService";
 import type { DictionarySeedServiceDependencies } from "@/background/dictionary/seed";
 import type { DictionaryEntry, LemmaEntry } from "@/shared/dictionary/types";
 import { sleep } from "@/shared/utils/async";
@@ -38,23 +38,23 @@ const RUN_LEMMA_ENTRY: LemmaEntry = {
 };
 
 const {
-	DICTIONARY_QUERY_SERVICE,
+	DICTIONARY_RESOLVE_SERVICE,
 	DICTIONARY_SEED_SERVICE,
 	DICTIONARY_SEED_STORAGE,
 	LEMMA_EXPANSION_SERVICE,
-	createDictionaryQueryServiceMock,
+	createDictionaryResolveServiceMock,
 	createDictionarySeedServiceMock,
 	createLemmaExpansionServiceMock,
 } = vi.hoisted(() => ({
-	DICTIONARY_QUERY_SERVICE: { id: "dictionary-query-service" },
+	DICTIONARY_RESOLVE_SERVICE: { id: "dictionary-resolve-service" },
 	DICTIONARY_SEED_SERVICE: {
 		ensureSeeded: vi.fn<() => Promise<void>>(),
 		id: "dictionary-seed-service",
 	},
 	DICTIONARY_SEED_STORAGE: { id: "seed-storage" },
 	LEMMA_EXPANSION_SERVICE: { id: "lemma-expansion-service" },
-	createDictionaryQueryServiceMock:
-		vi.fn<(dependencies: DictionaryQueryServiceDependencies) => unknown>(),
+	createDictionaryResolveServiceMock:
+		vi.fn<(dependencies: DictionaryResolveServiceDependencies) => unknown>(),
 	createDictionarySeedServiceMock:
 		vi.fn<(dependencies: DictionarySeedServiceDependencies) => unknown>(),
 	createLemmaExpansionServiceMock:
@@ -70,8 +70,8 @@ vi.mock("@/background/dictionary/assets", () => ({
 vi.mock("@/background/dictionary/lemmaExpansionService", () => ({
 	createLemmaExpansionService: createLemmaExpansionServiceMock,
 }));
-vi.mock("@/background/dictionary/queryService", () => ({
-	createDictionaryQueryService: createDictionaryQueryServiceMock,
+vi.mock("@/background/dictionary/resolveService", () => ({
+	createDictionaryResolveService: createDictionaryResolveServiceMock,
 }));
 vi.mock("@/background/dictionary/seed", () => ({
 	createBrowserDictionarySeedStateStorage: (): object =>
@@ -81,26 +81,28 @@ vi.mock("@/background/dictionary/seed", () => ({
 
 function captureDependencies(): {
 	readonly lemmaExpansion: LemmaExpansionServiceDependencies;
-	readonly query: DictionaryQueryServiceDependencies;
+	readonly resolve: DictionaryResolveServiceDependencies;
 	readonly seed: DictionarySeedServiceDependencies;
 } {
 	createDictionaryBrowserAdapter();
-	const query = createDictionaryQueryServiceMock.mock.lastCall?.[0];
+	const resolve = createDictionaryResolveServiceMock.mock.lastCall?.[0];
 	const lemmaExpansion = createLemmaExpansionServiceMock.mock.lastCall?.[0];
 	const seed = createDictionarySeedServiceMock.mock.lastCall?.[0];
 	if (
-		query === undefined ||
+		resolve === undefined ||
 		lemmaExpansion === undefined ||
 		seed === undefined
 	) {
 		throw new Error("createDictionaryBrowserAdapter built no services");
 	}
-	return { lemmaExpansion: lemmaExpansion, query: query, seed: seed };
+	return { lemmaExpansion: lemmaExpansion, resolve: resolve, seed: seed };
 }
 
 beforeEach(async () => {
 	vi.resetAllMocks();
-	createDictionaryQueryServiceMock.mockReturnValue(DICTIONARY_QUERY_SERVICE);
+	createDictionaryResolveServiceMock.mockReturnValue(
+		DICTIONARY_RESOLVE_SERVICE,
+	);
 	createDictionarySeedServiceMock.mockReturnValue(DICTIONARY_SEED_SERVICE);
 	createLemmaExpansionServiceMock.mockReturnValue(LEMMA_EXPANSION_SERVICE);
 	await Promise.all([
@@ -118,7 +120,7 @@ describe("createDictionaryBrowserAdapter", () => {
 		const adapter = createDictionaryBrowserAdapter();
 
 		expect(adapter).toEqual({
-			dictionaryQueryService: DICTIONARY_QUERY_SERVICE,
+			dictionaryResolveService: DICTIONARY_RESOLVE_SERVICE,
 			dictionarySeedService: DICTIONARY_SEED_SERVICE,
 			lemmaExpansionService: LEMMA_EXPANSION_SERVICE,
 		});
@@ -146,10 +148,10 @@ describe("seeded dictionary reads", () => {
 		const seed = Promise.withResolvers<void>();
 		DICTIONARY_SEED_SERVICE.ensureSeeded.mockReturnValue(seed.promise);
 		const staticReads = spyOnStaticReads();
-		const { lemmaExpansion, query } = captureDependencies();
+		const { lemmaExpansion, resolve } = captureDependencies();
 
-		const pendingEntry = query.dictRepository.getByWord("agenda");
-		const pendingLemma = query.lemmaRepository.getLemmaBySurface("agendas");
+		const pendingEntry = resolve.dictRepository.getByWord("agenda");
+		const pendingLemma = resolve.lemmaRepository.getLemmaBySurface("agendas");
 		const pendingRows = lemmaExpansion.lemmaRepository.listByLemmas(["agenda"]);
 		await sleep(0);
 		for (const staticRead of staticReads) {
@@ -168,12 +170,14 @@ describe("seeded dictionary reads", () => {
 
 	it("serve both lemma directions from one repository and map misses to null", async () => {
 		DICTIONARY_SEED_SERVICE.ensureSeeded.mockResolvedValue();
-		const { lemmaExpansion, query } = captureDependencies();
+		const { lemmaExpansion, resolve } = captureDependencies();
 
-		expect(lemmaExpansion.lemmaRepository).toBe(query.lemmaRepository);
-		await expect(query.dictRepository.getByWord("missing")).resolves.toBeNull();
+		expect(lemmaExpansion.lemmaRepository).toBe(resolve.lemmaRepository);
 		await expect(
-			query.lemmaRepository.getLemmaBySurface("missing"),
+			resolve.dictRepository.getByWord("missing"),
+		).resolves.toBeNull();
+		await expect(
+			resolve.lemmaRepository.getLemmaBySurface("missing"),
 		).resolves.toBeNull();
 	});
 
@@ -181,13 +185,13 @@ describe("seeded dictionary reads", () => {
 		const seedError = new Error("seed failed");
 		DICTIONARY_SEED_SERVICE.ensureSeeded.mockRejectedValue(seedError);
 		const staticReads = spyOnStaticReads();
-		const { lemmaExpansion, query } = captureDependencies();
+		const { lemmaExpansion, resolve } = captureDependencies();
 
-		await expect(query.dictRepository.getByWord("agenda")).rejects.toBe(
+		await expect(resolve.dictRepository.getByWord("agenda")).rejects.toBe(
 			seedError,
 		);
 		await expect(
-			query.lemmaRepository.getLemmaBySurface("agendas"),
+			resolve.lemmaRepository.getLemmaBySurface("agendas"),
 		).rejects.toBe(seedError);
 		await expect(
 			lemmaExpansion.lemmaRepository.listByLemmas(["agenda"]),

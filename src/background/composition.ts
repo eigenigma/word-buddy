@@ -2,7 +2,7 @@ import type { AnnotatorBroadcaster } from "@/background/annotator/broadcaster";
 import { createAnnotatorBrowserAdapter } from "@/background/annotator/browserAdapters";
 import { createDictionaryBrowserAdapter } from "@/background/dictionary/browserAdapters";
 import type { LemmaExpansionService } from "@/background/dictionary/lemmaExpansionService";
-import type { DictionaryQueryService } from "@/background/dictionary/queryService";
+import type { DictionaryResolveService } from "@/background/dictionary/resolveService";
 import type { DictionarySeedService } from "@/background/dictionary/seed";
 import { createLlmBrowserAdapter } from "@/background/llm/browserAdapters";
 import type { ParagraphTranslator } from "@/background/llm/translator";
@@ -15,7 +15,7 @@ import type { WordbookService } from "@/background/wordbook/service";
 
 export interface BackgroundServices {
 	readonly annotatorBroadcaster: AnnotatorBroadcaster;
-	readonly dictionaryQueryService: DictionaryQueryService;
+	readonly dictionaryResolveService: DictionaryResolveService;
 	readonly dictionarySeedService: DictionarySeedService;
 	readonly lemmaExpansionService: LemmaExpansionService;
 	readonly paragraphTranslator: ParagraphTranslator;
@@ -28,7 +28,7 @@ export interface BackgroundServices {
 export function createBackgroundServices(): BackgroundServices {
 	const annotatorBroadcaster = createAnnotatorBrowserAdapter();
 	const {
-		dictionaryQueryService,
+		dictionaryResolveService,
 		dictionarySeedService,
 		lemmaExpansionService,
 	} = createDictionaryBrowserAdapter();
@@ -44,7 +44,7 @@ export function createBackgroundServices(): BackgroundServices {
 
 	return {
 		annotatorBroadcaster: annotatorBroadcaster,
-		dictionaryQueryService: dictionaryQueryService,
+		dictionaryResolveService: dictionaryResolveService,
 		dictionarySeedService: dictionarySeedService,
 		lemmaExpansionService: lemmaExpansionService,
 		paragraphTranslator: paragraphTranslator,

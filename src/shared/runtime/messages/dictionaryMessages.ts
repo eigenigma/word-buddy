@@ -41,47 +41,34 @@ export type DictionaryLookupResult = z.infer<
 	typeof DictionaryLookupResultSchema
 >;
 
-export const DICTIONARY_LOOKUP_MESSAGE_TYPE =
-	"wordBuddy.dictionary.lookup" as const;
-export const LEMMA_NORMALIZE_MESSAGE_TYPE =
-	"wordBuddy.dictionary.normalize" as const;
+export const DICTIONARY_RESOLVE_MESSAGE_TYPE =
+	"wordBuddy.dictionary.resolve" as const;
 export const DICTIONARY_EXPAND_LEMMAS_MESSAGE_TYPE =
 	"wordBuddy.dictionary.expandLemmas" as const;
 
-export const DictionaryLookupRequestSchema = z
+export const DictionaryResolveRequestSchema = z
 	.object({
-		type: z.literal(DICTIONARY_LOOKUP_MESSAGE_TYPE),
-		word: z.string(),
+		selection: z.string(),
+		type: z.literal(DICTIONARY_RESOLVE_MESSAGE_TYPE),
 	})
 	.readonly();
-export type DictionaryLookupRequest = z.infer<
-	typeof DictionaryLookupRequestSchema
+export type DictionaryResolveRequest = z.infer<
+	typeof DictionaryResolveRequestSchema
 >;
 
-export const DictionaryLookupResponseSchema = z
+export const DictionaryResolveResponseSchema = z
 	.object({
-		entry: DictionaryLookupResultSchema.nullable(),
+		resolution: z
+			.object({
+				entry: DictionaryLookupResultSchema.nullable(),
+				lemma: z.string(),
+			})
+			.readonly()
+			.nullable(),
 	})
 	.readonly();
-export type DictionaryLookupResponse = z.infer<
-	typeof DictionaryLookupResponseSchema
->;
-
-export const LemmaNormalizeRequestSchema = z
-	.object({
-		surface: z.string(),
-		type: z.literal(LEMMA_NORMALIZE_MESSAGE_TYPE),
-	})
-	.readonly();
-export type LemmaNormalizeRequest = z.infer<typeof LemmaNormalizeRequestSchema>;
-
-export const LemmaNormalizeResponseSchema = z
-	.object({
-		lemma: z.string().nullable(),
-	})
-	.readonly();
-export type LemmaNormalizeResponse = z.infer<
-	typeof LemmaNormalizeResponseSchema
+export type DictionaryResolveResponse = z.infer<
+	typeof DictionaryResolveResponseSchema
 >;
 
 export const DictionaryExpandLemmasRequestSchema = z

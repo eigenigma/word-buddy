@@ -8,21 +8,16 @@ export {
 } from "./annotatorMessages";
 export {
 	DICTIONARY_EXPAND_LEMMAS_MESSAGE_TYPE,
-	DICTIONARY_LOOKUP_MESSAGE_TYPE,
+	DICTIONARY_RESOLVE_MESSAGE_TYPE,
 	type DictionaryExpandLemmasRequest,
 	DictionaryExpandLemmasRequestSchema,
 	type DictionaryExpandLemmasResponse,
 	DictionaryExpandLemmasResponseSchema,
-	type DictionaryLookupRequest,
-	DictionaryLookupRequestSchema,
-	type DictionaryLookupResponse,
-	DictionaryLookupResponseSchema,
 	type DictionaryLookupResult,
-	LEMMA_NORMALIZE_MESSAGE_TYPE,
-	type LemmaNormalizeRequest,
-	LemmaNormalizeRequestSchema,
-	type LemmaNormalizeResponse,
-	LemmaNormalizeResponseSchema,
+	type DictionaryResolveRequest,
+	DictionaryResolveRequestSchema,
+	type DictionaryResolveResponse,
+	DictionaryResolveResponseSchema,
 } from "./dictionaryMessages";
 export {
 	LLM_TRANSLATE_PARAGRAPH_MESSAGE_TYPE,

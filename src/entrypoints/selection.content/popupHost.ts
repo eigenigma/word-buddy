@@ -61,29 +61,6 @@ function applyPopupContainerStyles(
 	});
 }
 
-function applyPopupHostStyles(
-	shadow: ShadowRoot,
-	shadowHost: HTMLElement,
-	coordinates: PopupCoordinates,
-): void {
-	applyImportantStyles(shadowHost, {
-		display: "block",
-		height: "0",
-		isolation: "isolate",
-		left: `${coordinates.left}px`,
-		overflow: "visible",
-		position: "fixed",
-		top: `${coordinates.top}px`,
-		width: "0",
-		"z-index": "2147483647",
-	});
-	const shadowHtml = shadow.querySelector("html");
-
-	if (shadowHtml instanceof HTMLElement) {
-		setImportantStyle(shadowHtml, "z-index", "2147483647");
-	}
-}
-
 function renderPopupRoot(
 	onAdd: () => void,
 	onClose: () => void,
@@ -121,7 +98,7 @@ function createOnMountHandler(
 ) => HTMLElement {
 	return (
 		uiContainer: HTMLElement,
-		shadow: ShadowRoot,
+		_shadow: ShadowRoot,
 		shadowHost: HTMLElement,
 	): HTMLElement => {
 		const currentCoordinates = getCoordinates();
@@ -131,7 +108,6 @@ function createOnMountHandler(
 		}
 
 		setShadowHost(shadowHost);
-		applyPopupHostStyles(shadow, shadowHost, currentCoordinates);
 		applyPopupContainerStyles(uiContainer, currentCoordinates);
 		renderPopupRoot(onAdd, onClose, onOpen, uiContainer);
 

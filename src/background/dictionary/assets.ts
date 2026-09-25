@@ -1,6 +1,11 @@
 import type { PublicPath } from "wxt/browser";
 import { z } from "zod";
 
+import {
+	DICTIONARY_META_PUBLIC_PATH,
+	dictShardPublicPath,
+	LEMMA_INDEX_PUBLIC_PATH,
+} from "@/shared/dictionary/assetPaths";
 import type {
 	DictionaryBuildMetadata,
 	DictionaryEntry,
@@ -8,13 +13,6 @@ import type {
 	LemmaIndex,
 } from "@/shared/dictionary/types";
 import { sha256HexOfText } from "@/shared/utils/hash";
-
-const LEMMA_ASSET_PATH: PublicPath = "/data/lemma-index.json";
-const META_ASSET_PATH: PublicPath = "/data/dict-meta.json";
-
-function dictShardAssetPath(index: number): PublicPath {
-	return `/data/dict-${index}.json`;
-}
 
 export interface DictionarySeedManifest {
 	readonly assetFingerprint: string;
@@ -130,7 +128,7 @@ async function fetchAssetText(assetPath: PublicPath): Promise<string> {
 }
 
 export async function loadDictionarySeedManifest(): Promise<DictionarySeedManifest> {
-	const metadataText = await fetchAssetText(META_ASSET_PATH);
+	const metadataText = await fetchAssetText(DICTIONARY_META_PUBLIC_PATH);
 	const metadata = DictionaryBuildMetadataSchema.parse(
 		JSON.parse(metadataText),
 	);
@@ -146,11 +144,11 @@ export async function loadDictionarySeedAssets(
 ): Promise<DictionarySeedAssets> {
 	const { dictShardCount } = manifest.metadata;
 	const [lemmaText, ...shardTexts] = await Promise.all([
-		fetchAssetText(LEMMA_ASSET_PATH),
+		fetchAssetText(LEMMA_INDEX_PUBLIC_PATH),
 		...Array.from(
 			{ length: dictShardCount },
 			(_, index: number): Promise<string> =>
-				fetchAssetText(dictShardAssetPath(index)),
+				fetchAssetText(dictShardPublicPath(index)),
 		),
 	]);
 	if (lemmaText === undefined) {

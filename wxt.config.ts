@@ -1,6 +1,12 @@
 import preact from "@preact/preset-vite";
 import { defineConfig, type PublicPathEntry, type Wxt } from "wxt";
 
+import {
+	DICT_SHARD_PUBLIC_PATH_TEMPLATE,
+	DICTIONARY_META_PUBLIC_PATH,
+	LEMMA_INDEX_PUBLIC_PATH,
+} from "./src/shared/dictionary/assetPaths";
+
 type ObjectWebAccessibleResource = Exclude<
 	NonNullable<Browser.runtime.Manifest["web_accessible_resources"]>[number],
 	string
@@ -46,9 +52,8 @@ export default defineConfig({
 			);
 		},
 		"prepare:publicPaths": (_wxt: Wxt, paths: PublicPathEntry[]): void => {
-			paths.push("/data/dict-meta.json", "/data/lemma-index.json", {
-				// biome-ignore lint/suspicious/noTemplateCurlyInString: wxt renders this as a TS template literal type
-				path: "/data/dict-${number}.json",
+			paths.push(DICTIONARY_META_PUBLIC_PATH, LEMMA_INDEX_PUBLIC_PATH, {
+				path: DICT_SHARD_PUBLIC_PATH_TEMPLATE,
 				type: "templateLiteral",
 			});
 		},

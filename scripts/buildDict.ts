@@ -1,7 +1,13 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
+import {
+	DICTIONARY_META_PUBLIC_PATH,
+	DICTIONARY_PUBLIC_DIRECTORY,
+	dictShardPublicPath,
+	LEMMA_INDEX_PUBLIC_PATH,
+} from "../src/shared/dictionary/assetPaths";
 import type {
 	DictionaryBuildOutputCounts,
 	DictionaryEntry,
@@ -17,13 +23,13 @@ import {
 
 const RAW_ECDICT_URL = new URL("../data/raw/ecdict.csv", import.meta.url);
 const RAW_LEMMA_URL = new URL("../data/raw/lemma.en.txt", import.meta.url);
-const OUTPUT_DIRECTORY_URL = new URL("../public/data/", import.meta.url);
-const LEMMA_OUTPUT_URL = new URL("lemma-index.json", OUTPUT_DIRECTORY_URL);
-const META_OUTPUT_URL = new URL("dict-meta.json", OUTPUT_DIRECTORY_URL);
+const PUBLIC_DIRECTORY_URL = new URL("../public/", import.meta.url);
 
 const DICT_SHARD_BYTE_LIMIT = 4 * 1024 * 1024;
-const DICT_SHARD_FILENAME_PATTERN = /^dict-\d+\.json$/u;
-const LEGACY_DICT_FILENAME = "dict.json";
+
+function publicFileUrl(publicPath: string): URL {
+	return new URL(`.${publicPath}`, PUBLIC_DIRECTORY_URL);
+}
 
 function sha256(content: string): string {
 	return createHash("sha256").update(content).digest("hex");
@@ -43,10 +49,6 @@ async function readRequiredTextFile(fileUrl: URL): Promise<string> {
 
 function serializeJson(value: unknown, pretty = false): string {
 	return `${JSON.stringify(value, null, pretty ? 2 : undefined)}\n`;
-}
-
-function dictShardOutputUrl(index: number): URL {
-	return new URL(`dict-${index}.json`, OUTPUT_DIRECTORY_URL);
 }
 
 function splitEntriesIntoShards(
@@ -81,34 +83,32 @@ function splitEntriesIntoShards(
 	return shards;
 }
 
-async function removeStaleDictFiles(): Promise<void> {
-	const names = await readdir(OUTPUT_DIRECTORY_URL);
-	const stale = names.filter(
-		(name: string): boolean =>
-			name === LEGACY_DICT_FILENAME || DICT_SHARD_FILENAME_PATTERN.test(name),
-	);
-
-	await Promise.all(
-		stale.map(
-			(name: string): Promise<void> => rm(new URL(name, OUTPUT_DIRECTORY_URL)),
-		),
-	);
-}
-
+// The build owns the whole directory, so clearing it drops any file a
+// previous build wrote under a name this one no longer produces.
 async function writeArtifacts(
 	dictShards: readonly (readonly DictionaryEntry[])[],
 	lemmaIndex: unknown,
 	metadata: unknown,
 ): Promise<void> {
-	await mkdir(OUTPUT_DIRECTORY_URL, { recursive: true });
-	await removeStaleDictFiles();
+	const outputDirectoryUrl = publicFileUrl(DICTIONARY_PUBLIC_DIRECTORY);
+	await rm(outputDirectoryUrl, { force: true, recursive: true });
+	await mkdir(outputDirectoryUrl, { recursive: true });
 	await Promise.all([
 		...dictShards.map(
 			(shard, index): Promise<void> =>
-				writeFile(dictShardOutputUrl(index), serializeJson(shard)),
+				writeFile(
+					publicFileUrl(dictShardPublicPath(index)),
+					serializeJson(shard),
+				),
 		),
-		writeFile(LEMMA_OUTPUT_URL, serializeJson(lemmaIndex)),
-		writeFile(META_OUTPUT_URL, serializeJson(metadata, true)),
+		writeFile(
+			publicFileUrl(LEMMA_INDEX_PUBLIC_PATH),
+			serializeJson(lemmaIndex),
+		),
+		writeFile(
+			publicFileUrl(DICTIONARY_META_PUBLIC_PATH),
+			serializeJson(metadata, true),
+		),
 	]);
 }
 

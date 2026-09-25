@@ -33,6 +33,24 @@ interface DictionaryBrowserAdapter {
 
 type GetSeededDictionary = () => Promise<StaticDictionaryDatabase>;
 
+// anyOf walks one value cursor across the whole key range; reading only the
+// keys of each lemma, pipelined in one transaction, is faster in Firefox. A
+// row is just its surface key plus the lemma asked for. `then` rather than
+// `await` keeps this a plain Dexie promise, which skips Dexie's zone tracking
+// for native awaits.
+function listLemmaRows(
+	table: StaticDictionaryDatabase["lemma"],
+	lemma: string,
+): Promise<readonly LemmaEntry[]> {
+	return table
+		.where("lemma")
+		.equals(lemma)
+		.primaryKeys()
+		.then((surfaces) =>
+			surfaces.map((surface) => ({ lemma: lemma, surface: surface })),
+		);
+}
+
 function createSeededDictEntryRepository(
 	getSeededDictionary: GetSeededDictionary,
 ): DictionaryEntryRepository {
@@ -56,7 +74,17 @@ function createSeededLemmaRepository(
 			lemmas: readonly string[],
 		): Promise<readonly LemmaEntry[]> => {
 			const dictionary = await getSeededDictionary();
-			return await dictionary.lemma.where("lemma").anyOf(lemmas).toArray();
+			const rowsByLemma = await dictionary.transaction(
+				"r",
+				dictionary.lemma,
+				() =>
+					Promise.all(
+						[...new Set(lemmas)].map((lemma) =>
+							listLemmaRows(dictionary.lemma, lemma),
+						),
+					),
+			);
+			return rowsByLemma.flat();
 		},
 	};
 }

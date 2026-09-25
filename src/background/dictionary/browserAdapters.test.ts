@@ -22,6 +22,11 @@ const RUN_LEMMA_ENTRY: LemmaEntry = {
 	surface: "ran",
 };
 
+const RUNNING_LEMMA_ENTRY: LemmaEntry = {
+	lemma: "run",
+	surface: "running",
+};
+
 const {
 	DICTIONARY_RESOLVE_SERVICE,
 	DICTIONARY_SEED_SERVICE,
@@ -129,6 +134,7 @@ describe("seeded dictionary reads", () => {
 		await staticDictionaryDb.lemma.bulkPut([
 			AGENDA_LEMMA_ENTRY,
 			RUN_LEMMA_ENTRY,
+			RUNNING_LEMMA_ENTRY,
 		]);
 	});
 
@@ -167,6 +173,27 @@ describe("seeded dictionary reads", () => {
 		await expect(
 			resolve.lemmaRepository.getLemmaBySurface("missing"),
 		).resolves.toBeNull();
+	});
+
+	it("list each row of the requested lemmas once and skip misses", async () => {
+		DICTIONARY_SEED_SERVICE.ensureSeeded.mockResolvedValue();
+		const { lemmaExpansion } = captureDependencies();
+
+		const rows = await lemmaExpansion.lemmaRepository.listByLemmas([
+			"run",
+			"missing",
+			"agenda",
+			"run",
+		]);
+
+		expect(rows).toHaveLength(3);
+		expect(rows).toEqual(
+			expect.arrayContaining([
+				AGENDA_LEMMA_ENTRY,
+				RUN_LEMMA_ENTRY,
+				RUNNING_LEMMA_ENTRY,
+			]),
+		);
 	});
 
 	it("reject with the seed error without touching staticDictionaryDb", async () => {

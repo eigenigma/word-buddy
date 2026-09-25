@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
 	EMPTY_SITE_CONTROL_STATE,
@@ -22,11 +22,6 @@ beforeEach(() => {
 			},
 		},
 	});
-});
-
-afterEach(() => {
-	vi.restoreAllMocks();
-	Reflect.deleteProperty(globalThis, "reportError");
 });
 
 describe("createBrowserStorageSiteControl", () => {

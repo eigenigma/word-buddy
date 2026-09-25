@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SEED_FORMAT_VERSION } from "./assets";
 import { createBrowserDictionarySeedStateStorage } from "./storage";
@@ -27,10 +27,6 @@ beforeEach(() => {
 			},
 		},
 	});
-});
-
-afterEach(() => {
-	vi.unstubAllGlobals();
 });
 
 describe("createBrowserDictionarySeedStateStorage", () => {

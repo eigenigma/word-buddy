@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EMPTY_LLM_SETTINGS, type LlmSettings } from "@/shared/settings/types";
 
@@ -19,11 +19,6 @@ beforeEach(() => {
 			},
 		},
 	});
-});
-
-afterEach(() => {
-	vi.restoreAllMocks();
-	Reflect.deleteProperty(globalThis, "reportError");
 });
 
 describe("createBrowserStorageSettingsStorage", () => {

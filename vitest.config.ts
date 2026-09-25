@@ -35,5 +35,6 @@ export default defineConfig({
 			},
 		},
 		setupFiles: ["fake-indexeddb/auto"],
+		unstubGlobals: true,
 	},
 });

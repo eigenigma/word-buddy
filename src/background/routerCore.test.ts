@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { BackgroundServices } from "@/background/composition";
 
@@ -23,10 +23,6 @@ function createBroadcastServices(
 		},
 	};
 }
-
-afterEach(() => {
-	vi.unstubAllGlobals();
-});
 
 describe("broadcast helpers", () => {
 	it("reports invalidation broadcast failures", async () => {

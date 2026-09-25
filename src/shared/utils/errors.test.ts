@@ -1,10 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { reportGlobalError, toErrorMessage } from "./errors";
-
-afterEach(() => {
-	vi.unstubAllGlobals();
-});
 
 describe("toErrorMessage", () => {
 	it("returns the message for Error instances", () => {

@@ -25,6 +25,18 @@ export interface DictionarySeedAssets extends DictionarySeedManifest {
 	readonly lemmaEntries: readonly LemmaEntry[];
 }
 
+export interface DictionaryAssetLoaderDependencies {
+	readonly fetch: (url: string) => Promise<Response>;
+	readonly getUrl: (assetPath: PublicPath) => string;
+}
+
+export interface DictionaryAssetLoader {
+	readonly loadAssets: (
+		manifest: DictionarySeedManifest,
+	) => Promise<DictionarySeedAssets>;
+	readonly loadManifest: () => Promise<DictionarySeedManifest>;
+}
+
 const DictionaryEntrySchema: z.ZodType<DictionaryEntry> = z
 	.object({
 		definition: z.string().nullable(),
@@ -119,60 +131,64 @@ function toLemmaEntries(lemmaIndex: LemmaIndex): readonly LemmaEntry[] {
 	);
 }
 
-async function fetchAssetText(assetPath: PublicPath): Promise<string> {
-	const assetUrl = browser.runtime.getURL(assetPath);
-	const response = await fetch(assetUrl);
+export function createDictionaryAssetLoader(
+	dependencies: DictionaryAssetLoaderDependencies,
+): DictionaryAssetLoader {
+	const fetchAssetText = async (assetPath: PublicPath): Promise<string> => {
+		const response = await dependencies.fetch(dependencies.getUrl(assetPath));
 
-	if (!response.ok) {
-		throw new Error(
-			`Failed to load dictionary asset ${assetPath}: ${response.status}`,
-		);
-	}
+		if (!response.ok) {
+			throw new Error(
+				`Failed to load dictionary asset ${assetPath}: ${response.status}`,
+			);
+		}
 
-	return await response.text();
-}
-
-async function loadLemmaIndex(): Promise<LemmaIndex> {
-	const text = await fetchAssetText(LEMMA_INDEX_PUBLIC_PATH);
-	return LemmaIndexSchema.parse(JSON.parse(text));
-}
-
-async function loadDictShard(
-	index: number,
-): Promise<readonly DictionaryEntry[]> {
-	const text = await fetchAssetText(dictShardPublicPath(index));
-	return DictionaryEntryArraySchema.parse(JSON.parse(text));
-}
-
-export async function loadDictionarySeedManifest(): Promise<DictionarySeedManifest> {
-	const metadataText = await fetchAssetText(DICTIONARY_META_PUBLIC_PATH);
-	const metadata = DictionaryBuildMetadataSchema.parse(
-		JSON.parse(metadataText),
-	);
-
-	return {
-		assetFingerprint: await sha256HexOfText(metadataText),
-		metadata: metadata,
+		return await response.text();
 	};
-}
 
-export async function loadDictionarySeedAssets(
-	manifest: DictionarySeedManifest,
-): Promise<DictionarySeedAssets> {
-	const [lemmaIndex, dictShards] = await Promise.all([
-		loadLemmaIndex(),
-		Promise.all(
-			manifest.metadata.artifactSha256.dictShards.map(
-				(_, index: number): Promise<readonly DictionaryEntry[]> =>
-					loadDictShard(index),
-			),
-		),
-	]);
+	const loadLemmaIndex = async (): Promise<LemmaIndex> =>
+		LemmaIndexSchema.parse(
+			JSON.parse(await fetchAssetText(LEMMA_INDEX_PUBLIC_PATH)),
+		);
+
+	const loadDictShard = async (
+		index: number,
+	): Promise<readonly DictionaryEntry[]> =>
+		DictionaryEntryArraySchema.parse(
+			JSON.parse(await fetchAssetText(dictShardPublicPath(index))),
+		);
 
 	return {
-		assetFingerprint: manifest.assetFingerprint,
-		dictEntries: dictShards.flat(),
-		lemmaEntries: toLemmaEntries(lemmaIndex),
-		metadata: manifest.metadata,
+		loadAssets: async (
+			manifest: DictionarySeedManifest,
+		): Promise<DictionarySeedAssets> => {
+			const [lemmaIndex, dictShards] = await Promise.all([
+				loadLemmaIndex(),
+				Promise.all(
+					manifest.metadata.artifactSha256.dictShards.map(
+						(_, index: number): Promise<readonly DictionaryEntry[]> =>
+							loadDictShard(index),
+					),
+				),
+			]);
+
+			return {
+				assetFingerprint: manifest.assetFingerprint,
+				dictEntries: dictShards.flat(),
+				lemmaEntries: toLemmaEntries(lemmaIndex),
+				metadata: manifest.metadata,
+			};
+		},
+		loadManifest: async (): Promise<DictionarySeedManifest> => {
+			const metadataText = await fetchAssetText(DICTIONARY_META_PUBLIC_PATH);
+			const metadata = DictionaryBuildMetadataSchema.parse(
+				JSON.parse(metadataText),
+			);
+
+			return {
+				assetFingerprint: await sha256HexOfText(metadataText),
+				metadata: metadata,
+			};
+		},
 	};
 }

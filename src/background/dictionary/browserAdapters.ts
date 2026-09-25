@@ -1,9 +1,8 @@
 import type { Table } from "dexie";
 
-import {
-	loadDictionarySeedAssets,
-	loadDictionarySeedManifest,
-} from "@/background/dictionary/assets";
+import type { PublicPath } from "wxt/browser";
+
+import { createDictionaryAssetLoader } from "@/background/dictionary/assets";
 import {
 	STATIC_DICTIONARY_DB_SCHEMA_VERSION,
 	type StaticDictionaryDatabase,
@@ -57,10 +56,16 @@ async function hasRows(table: Table<unknown, string>): Promise<boolean> {
 }
 
 function createDictionarySeedBrowserAdapter(): DictionarySeedService {
+	const assetLoader = createDictionaryAssetLoader({
+		fetch: fetch.bind(globalThis),
+		getUrl: (assetPath: PublicPath): string =>
+			browser.runtime.getURL(assetPath),
+	});
+
 	return createDictionarySeedService({
 		dbSchemaVersion: STATIC_DICTIONARY_DB_SCHEMA_VERSION,
-		loadAssets: loadDictionarySeedAssets,
-		loadManifest: loadDictionarySeedManifest,
+		loadAssets: assetLoader.loadAssets,
+		loadManifest: assetLoader.loadManifest,
 		repository: {
 			clearAll: async (): Promise<void> => {
 				await staticDictionaryDb.transaction(

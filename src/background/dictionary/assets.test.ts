@@ -1,17 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
+
+import { describe, expect, it, vi } from "vitest";
+import type { PublicPath } from "wxt/browser";
 
 import type { DictionaryEntry } from "@/shared/dictionary/types";
 import { TEST_DICTIONARY_METADATA } from "@/test-helpers/dictionaryMetadata";
 
 import {
+	createDictionaryAssetLoader,
+	type DictionaryAssetLoader,
 	type DictionarySeedManifest,
-	loadDictionarySeedAssets,
-	loadDictionarySeedManifest,
 } from "./assets";
-
-const fetchMock = vi.fn();
-const getUrlMock = vi.fn();
-const digestMock = vi.fn();
 
 const TEST_DICT_ENTRY: DictionaryEntry = {
 	definition: "meeting plan",
@@ -31,74 +30,68 @@ const TEST_DICT_ENTRY: DictionaryEntry = {
 	word: "agenda",
 };
 
-beforeEach(() => {
-	fetchMock.mockReset();
-	getUrlMock.mockReset();
-	digestMock.mockReset();
-	vi.stubGlobal("browser", {
-		runtime: {
-			getURL: getUrlMock,
-		},
-	});
-	vi.stubGlobal("fetch", fetchMock);
-	Object.defineProperty(globalThis.crypto, "subtle", {
-		configurable: true,
-		value: {
-			digest: digestMock,
-		},
-	});
-	getUrlMock.mockImplementation(
-		(assetPath: string): string => `moz-extension://${assetPath}`,
+const TEST_MANIFEST: DictionarySeedManifest = {
+	assetFingerprint: "fingerprint",
+	metadata: TEST_DICTIONARY_METADATA,
+};
+
+function createLoader(assetBodies: Readonly<Record<string, string>>): {
+	readonly fetch: ReturnType<typeof vi.fn<(url: string) => Promise<Response>>>;
+	readonly getUrl: ReturnType<typeof vi.fn<(assetPath: PublicPath) => string>>;
+	readonly loader: DictionaryAssetLoader;
+} {
+	const getUrl = vi.fn(
+		(assetPath: PublicPath): string => `moz-extension://id${assetPath}`,
 	);
-});
+	const fetch = vi.fn(async (url: string): Promise<Response> => {
+		const body = assetBodies[url];
+		return body === undefined
+			? new Response("missing", { status: 404 })
+			: new Response(body, { status: 200 });
+	});
 
-afterEach(() => {
-	vi.restoreAllMocks();
-});
+	return {
+		fetch: fetch,
+		getUrl: getUrl,
+		loader: createDictionaryAssetLoader({ fetch: fetch, getUrl: getUrl }),
+	};
+}
 
-describe("loadDictionarySeedManifest", () => {
-	it("loads metadata and computes an asset fingerprint", async () => {
-		fetchMock.mockResolvedValue(
-			new Response(JSON.stringify(TEST_DICTIONARY_METADATA), {
-				status: 200,
-			}),
-		);
-		digestMock.mockResolvedValue(new Uint8Array([0, 171, 255]).buffer);
+describe("loadManifest", () => {
+	it("parses the metadata and fingerprints its exact text", async () => {
+		const metadataText = JSON.stringify(TEST_DICTIONARY_METADATA, null, 2);
+		const { fetch, loader } = createLoader({
+			"moz-extension://id/data/dict-meta.json": metadataText,
+		});
 
-		await expect(loadDictionarySeedManifest()).resolves.toEqual({
-			assetFingerprint: "00abff",
+		await expect(loader.loadManifest()).resolves.toEqual({
+			assetFingerprint: createHash("sha256").update(metadataText).digest("hex"),
 			metadata: TEST_DICTIONARY_METADATA,
 		});
-		expect(getUrlMock).toHaveBeenCalledWith("/data/dict-meta.json");
-		expect(fetchMock).toHaveBeenCalledWith(
-			"moz-extension:///data/dict-meta.json",
+		expect(fetch).toHaveBeenCalledWith(
+			"moz-extension://id/data/dict-meta.json",
 		);
 	});
 
 	it("throws when the metadata asset fetch fails", async () => {
-		fetchMock.mockResolvedValue(new Response("missing", { status: 500 }));
+		const { loader } = createLoader({});
 
-		await expect(loadDictionarySeedManifest()).rejects.toThrow(
-			"Failed to load dictionary asset /data/dict-meta.json: 500",
+		await expect(loader.loadManifest()).rejects.toThrow(
+			"Failed to load dictionary asset /data/dict-meta.json: 404",
 		);
 	});
 });
 
-describe("loadDictionarySeedAssets", () => {
-	it("loads dictionary shards and lemma assets using the provided manifest", async () => {
-		const manifest: DictionarySeedManifest = {
-			assetFingerprint: "fingerprint",
-			metadata: TEST_DICTIONARY_METADATA,
-		};
-		fetchMock
-			.mockResolvedValueOnce(
-				new Response(JSON.stringify({ agendas: "agenda" }), { status: 200 }),
-			)
-			.mockResolvedValueOnce(
-				new Response(JSON.stringify([TEST_DICT_ENTRY]), { status: 200 }),
-			);
+describe("loadAssets", () => {
+	it("loads one shard per manifest hash plus the lemma index", async () => {
+		const { getUrl, loader } = createLoader({
+			"moz-extension://id/data/dict-0.json": JSON.stringify([TEST_DICT_ENTRY]),
+			"moz-extension://id/data/lemma-index.json": JSON.stringify({
+				agendas: "agenda",
+			}),
+		});
 
-		await expect(loadDictionarySeedAssets(manifest)).resolves.toEqual({
+		await expect(loader.loadAssets(TEST_MANIFEST)).resolves.toEqual({
 			assetFingerprint: "fingerprint",
 			dictEntries: [TEST_DICT_ENTRY],
 			lemmaEntries: [
@@ -109,25 +102,20 @@ describe("loadDictionarySeedAssets", () => {
 			],
 			metadata: TEST_DICTIONARY_METADATA,
 		});
-		expect(getUrlMock.mock.calls).toEqual([
+		expect(getUrl.mock.calls).toEqual([
 			["/data/lemma-index.json"],
 			["/data/dict-0.json"],
 		]);
 	});
 
 	it("rejects invalid dictionary asset payloads", async () => {
-		const manifest: DictionarySeedManifest = {
-			assetFingerprint: "fingerprint",
-			metadata: TEST_DICTIONARY_METADATA,
-		};
-		fetchMock
-			.mockResolvedValueOnce(
-				new Response(JSON.stringify({ agendas: "agenda" }), { status: 200 }),
-			)
-			.mockResolvedValueOnce(
-				new Response(JSON.stringify([{ word: 1 }]), { status: 200 }),
-			);
+		const { loader } = createLoader({
+			"moz-extension://id/data/dict-0.json": JSON.stringify([{ word: 1 }]),
+			"moz-extension://id/data/lemma-index.json": JSON.stringify({
+				agendas: "agenda",
+			}),
+		});
 
-		await expect(loadDictionarySeedAssets(manifest)).rejects.toThrow();
+		await expect(loader.loadAssets(TEST_MANIFEST)).rejects.toThrow();
 	});
 });

@@ -7,9 +7,8 @@ import type {
 	LemmaEntry,
 } from "../../shared/dictionary/types";
 import {
+	createDictionaryAssetLoader,
 	type DictionarySeedAssets,
-	loadDictionarySeedAssets,
-	loadDictionarySeedManifest,
 } from "./assets";
 
 vi.mock(
@@ -32,13 +31,11 @@ async function fetchPublicAsset(assetUrl: string): Promise<Response> {
 }
 
 async function loadArtifacts(): Promise<DictionarySeedAssets> {
-	vi.stubGlobal("browser", { runtime: { getURL: resolvePublicAssetUrl } });
-	vi.stubGlobal("fetch", fetchPublicAsset);
-	try {
-		return await loadDictionarySeedAssets(await loadDictionarySeedManifest());
-	} finally {
-		vi.unstubAllGlobals();
-	}
+	const loader = createDictionaryAssetLoader({
+		fetch: fetchPublicAsset,
+		getUrl: resolvePublicAssetUrl,
+	});
+	return await loader.loadAssets(await loader.loadManifest());
 }
 
 let createDictionaryQueryService: CreateDictionaryQueryService;

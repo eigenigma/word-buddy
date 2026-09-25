@@ -62,8 +62,10 @@ const {
 }));
 
 vi.mock("@/background/dictionary/assets", () => ({
-	loadDictionarySeedAssets: vi.fn(),
-	loadDictionarySeedManifest: vi.fn(),
+	createDictionaryAssetLoader: (): object => ({
+		loadAssets: vi.fn(),
+		loadManifest: vi.fn(),
+	}),
 }));
 vi.mock("@/background/dictionary/lemmaExpansionService", () => ({
 	createLemmaExpansionService: createLemmaExpansionServiceMock,

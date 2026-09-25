@@ -7,7 +7,12 @@ import {
 	type ExchangeCode,
 } from "../../src/shared/dictionary/types";
 import { normalizeLookupTerm } from "../../src/shared/dictionary/utils";
-import { normalizeText, parseInteger, sortStrings } from "./utils";
+import {
+	compareCodeUnits,
+	normalizeText,
+	parseInteger,
+	sortStrings,
+} from "./utils";
 
 export interface DictionaryBuildResult {
 	readonly counts: {
@@ -240,7 +245,7 @@ function sortEntries(
 ): readonly DictionaryEntry[] {
 	return [...entries].sort(
 		(left: DictionaryEntry, right: DictionaryEntry): number =>
-			left.word.localeCompare(right.word),
+			compareCodeUnits(left.word, right.word),
 	);
 }
 

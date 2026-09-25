@@ -1,19 +1,3 @@
-export const REQUIRED_ECDICT_COLUMNS = [
-	"word",
-	"phonetic",
-	"definition",
-	"translation",
-	"pos",
-	"collins",
-	"oxford",
-	"tag",
-	"bnc",
-	"frq",
-	"exchange",
-	"detail",
-	"audio",
-] as const;
-
 export const EXCHANGE_CODES = [
 	"0",
 	"1",
@@ -27,7 +11,6 @@ export const EXCHANGE_CODES = [
 	"t",
 ] as const;
 
-export type RequiredEcdictColumn = (typeof REQUIRED_ECDICT_COLUMNS)[number];
 export type ExchangeCode = (typeof EXCHANGE_CODES)[number];
 
 export interface DictionaryFrequencyMetadata {

@@ -1,6 +1,7 @@
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 
+import { readRenderedText } from "@/shared/dom/renderedText";
 import {
 	findEnclosingBlock,
 	readActiveSelection,
@@ -26,8 +27,7 @@ function getSelectionContext(currentUiState: SelectionBubbleUiState): string {
 		selection.range.commonAncestorContainer,
 	);
 	return extractContainingSentence(
-		// biome-ignore lint/nursery/useDomNodeTextContent: lookup context must be rendered text; textContent pulls in hidden and script content and drops line breaks
-		contextBlock.innerText,
+		readRenderedText(contextBlock),
 		selection.text,
 	);
 }

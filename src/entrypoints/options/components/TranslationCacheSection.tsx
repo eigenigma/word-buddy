@@ -1,6 +1,10 @@
 import type { JSX } from "preact";
 
-import { STATUS_BANNER_CLASS } from "@/shared/ui/styles";
+import {
+	DISABLED_BUTTON_CLASS,
+	SECONDARY_BUTTON_CLASS,
+	STATUS_BANNER_CLASS,
+} from "@/shared/ui/styles";
 import { toErrorMessage } from "@/shared/utils/errors";
 
 import {
@@ -71,9 +75,7 @@ export function TranslationCacheSection(): JSX.Element {
 				</div>
 				<button
 					className={
-						isClearing
-							? "rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 font-medium text-slate-400 text-sm"
-							: "rounded-xl border border-slate-200 bg-white px-4 py-2 font-medium text-slate-700 text-sm transition hover:bg-slate-50"
+						isClearing ? DISABLED_BUTTON_CLASS : SECONDARY_BUTTON_CLASS
 					}
 					disabled={isClearing}
 					onClick={(): void => {

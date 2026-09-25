@@ -23,7 +23,10 @@ import {
 export type PopupUi = ShadowRootContentScriptUi<HTMLElement>;
 export type PopupUiOptions = ShadowRootContentScriptUiOptions<HTMLElement>;
 
-const CONTAINER_CLASS = "fixed z-2147483647";
+// The shadow tree has no <html> of its own and WXT resets :host to initial
+// values, so the container also takes the root font and line height the
+// preflight gives <html>.
+const CONTAINER_CLASS = "fixed z-2147483647 font-sans leading-normal";
 
 export interface SelectionPopupDependencies {
 	readonly createUi: (options: PopupUiOptions) => Promise<PopupUi>;

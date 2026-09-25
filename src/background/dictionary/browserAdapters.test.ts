@@ -149,8 +149,8 @@ describe("seeded dictionary reads", () => {
 		const { lemmaExpansion, query } = captureDependencies();
 
 		const pendingEntry = query.dictRepository.getByWord("agenda");
-		const pendingLemma = query.lemmaRepository.getBySurface("agendas");
-		const pendingRows = lemmaExpansion.repository.listByLemmas(["agenda"]);
+		const pendingLemma = query.lemmaRepository.getLemmaBySurface("agendas");
+		const pendingRows = lemmaExpansion.lemmaRepository.listByLemmas(["agenda"]);
 		await sleep(0);
 		for (const staticRead of staticReads) {
 			expect(staticRead).not.toHaveBeenCalled();
@@ -166,6 +166,17 @@ describe("seeded dictionary reads", () => {
 		expect(createDictionarySeedServiceMock).toHaveBeenCalledTimes(1);
 	});
 
+	it("serve both lemma directions from one repository and map misses to null", async () => {
+		DICTIONARY_SEED_SERVICE.ensureSeeded.mockResolvedValue();
+		const { lemmaExpansion, query } = captureDependencies();
+
+		expect(lemmaExpansion.lemmaRepository).toBe(query.lemmaRepository);
+		await expect(query.dictRepository.getByWord("missing")).resolves.toBeNull();
+		await expect(
+			query.lemmaRepository.getLemmaBySurface("missing"),
+		).resolves.toBeNull();
+	});
+
 	it("reject with the seed error without touching staticDictionaryDb", async () => {
 		const seedError = new Error("seed failed");
 		DICTIONARY_SEED_SERVICE.ensureSeeded.mockRejectedValue(seedError);
@@ -175,11 +186,11 @@ describe("seeded dictionary reads", () => {
 		await expect(query.dictRepository.getByWord("agenda")).rejects.toBe(
 			seedError,
 		);
-		await expect(query.lemmaRepository.getBySurface("agendas")).rejects.toBe(
-			seedError,
-		);
 		await expect(
-			lemmaExpansion.repository.listByLemmas(["agenda"]),
+			query.lemmaRepository.getLemmaBySurface("agendas"),
+		).rejects.toBe(seedError);
+		await expect(
+			lemmaExpansion.lemmaRepository.listByLemmas(["agenda"]),
 		).rejects.toBe(seedError);
 		for (const staticRead of staticReads) {
 			expect(staticRead).not.toHaveBeenCalled();

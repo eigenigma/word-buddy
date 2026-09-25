@@ -14,6 +14,10 @@ import {
 	createDictionaryQueryService,
 	type DictionaryQueryService,
 } from "@/background/dictionary/queryService";
+import type {
+	DictionaryEntryRepository,
+	LemmaRepository,
+} from "@/background/dictionary/repositories";
 import {
 	createBrowserDictionarySeedStateStorage,
 	createDictionarySeedService,
@@ -29,23 +33,32 @@ interface DictionaryBrowserAdapter {
 
 type GetSeededDictionary = () => Promise<StaticDictionaryDatabase>;
 
-function createDictionaryQueryBrowserAdapter(
+function createSeededDictEntryRepository(
 	getSeededDictionary: GetSeededDictionary,
-): DictionaryQueryService {
-	return createDictionaryQueryService({
-		dictRepository: {
-			getByWord: async (word: string) => {
-				const dictionary = await getSeededDictionary();
-				return await dictionary.dict.get(word);
-			},
+): DictionaryEntryRepository {
+	return {
+		getByWord: async (word: string): Promise<DictionaryEntry | null> => {
+			const dictionary = await getSeededDictionary();
+			return (await dictionary.dict.get(word)) ?? null;
 		},
-		lemmaRepository: {
-			getBySurface: async (surface: string) => {
-				const dictionary = await getSeededDictionary();
-				return (await dictionary.lemma.get(surface))?.lemma;
-			},
+	};
+}
+
+function createSeededLemmaRepository(
+	getSeededDictionary: GetSeededDictionary,
+): LemmaRepository {
+	return {
+		getLemmaBySurface: async (surface: string): Promise<string | null> => {
+			const dictionary = await getSeededDictionary();
+			return (await dictionary.lemma.get(surface))?.lemma ?? null;
 		},
-	});
+		listByLemmas: async (
+			lemmas: readonly string[],
+		): Promise<readonly LemmaEntry[]> => {
+			const dictionary = await getSeededDictionary();
+			return await dictionary.lemma.where("lemma").anyOf(lemmas).toArray();
+		},
+	};
 }
 
 // count() walks the whole store; one primary key answers "is it empty".
@@ -101,19 +114,6 @@ function createDictionarySeedBrowserAdapter(): DictionarySeedService {
 	});
 }
 
-function createLemmaExpansionBrowserAdapter(
-	getSeededDictionary: GetSeededDictionary,
-): LemmaExpansionService {
-	return createLemmaExpansionService({
-		repository: {
-			listByLemmas: async (lemmas: readonly string[]) => {
-				const dictionary = await getSeededDictionary();
-				return await dictionary.lemma.where("lemma").anyOf(lemmas).toArray();
-			},
-		},
-	});
-}
-
 export function createDictionaryBrowserAdapter(): DictionaryBrowserAdapter {
 	const dictionarySeedService = createDictionarySeedBrowserAdapter();
 	// The router serves messages while seeding clears and refills the tables,
@@ -122,12 +122,16 @@ export function createDictionaryBrowserAdapter(): DictionaryBrowserAdapter {
 		await dictionarySeedService.ensureSeeded();
 		return staticDictionaryDb;
 	};
+	const lemmaRepository = createSeededLemmaRepository(getSeededDictionary);
 
 	return {
-		dictionaryQueryService:
-			createDictionaryQueryBrowserAdapter(getSeededDictionary),
+		dictionaryQueryService: createDictionaryQueryService({
+			dictRepository: createSeededDictEntryRepository(getSeededDictionary),
+			lemmaRepository: lemmaRepository,
+		}),
 		dictionarySeedService: dictionarySeedService,
-		lemmaExpansionService:
-			createLemmaExpansionBrowserAdapter(getSeededDictionary),
+		lemmaExpansionService: createLemmaExpansionService({
+			lemmaRepository: lemmaRepository,
+		}),
 	};
 }

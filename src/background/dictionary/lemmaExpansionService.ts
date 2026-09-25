@@ -1,13 +1,9 @@
 import type { LemmaEntry, LemmaExpansions } from "@/shared/dictionary/types";
 
-export interface LemmaReverseRepository {
-	readonly listByLemmas: (
-		lemmas: readonly string[],
-	) => Promise<readonly LemmaEntry[]>;
-}
+import type { LemmaRepository } from "./repositories";
 
 export interface LemmaExpansionServiceDependencies {
-	readonly repository: LemmaReverseRepository;
+	readonly lemmaRepository: Pick<LemmaRepository, "listByLemmas">;
 }
 
 export interface LemmaExpansionService {
@@ -47,7 +43,7 @@ export function createLemmaExpansionService(
 				return Object.freeze({});
 			}
 
-			const entries = await dependencies.repository.listByLemmas(lemmas);
+			const entries = await dependencies.lemmaRepository.listByLemmas(lemmas);
 			return buildExpansionResult(lemmas, entries);
 		},
 	};

@@ -22,7 +22,7 @@ describe("createLemmaExpansionService", () => {
 	it("expands each requested lemma to its surfaces plus itself", async () => {
 		const listByLemmas = vi.fn(listRowsByLemmas);
 		const service = createLemmaExpansionService({
-			repository: { listByLemmas: listByLemmas },
+			lemmaRepository: { listByLemmas: listByLemmas },
 		});
 
 		expect(await service.expandLemmas(["run", "unknown"])).toEqual({
@@ -35,7 +35,7 @@ describe("createLemmaExpansionService", () => {
 	it("returns an empty result for empty input without touching the repository", async () => {
 		const listByLemmas = vi.fn(listRowsByLemmas);
 		const service = createLemmaExpansionService({
-			repository: { listByLemmas: listByLemmas },
+			lemmaRepository: { listByLemmas: listByLemmas },
 		});
 
 		expect(await service.expandLemmas([])).toEqual({});
@@ -45,7 +45,7 @@ describe("createLemmaExpansionService", () => {
 	it("rejects with the repository error", async () => {
 		const readError = new Error("read failed");
 		const service = createLemmaExpansionService({
-			repository: {
+			lemmaRepository: {
 				listByLemmas: async (): Promise<readonly LemmaEntry[]> => {
 					throw readError;
 				},

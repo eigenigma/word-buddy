@@ -55,10 +55,11 @@ beforeAll(async () => {
 
 	service = createDictionaryQueryService({
 		dictRepository: {
-			getByWord: async (word: string) => dictMap.get(word),
+			getByWord: async (word: string) => dictMap.get(word) ?? null,
 		},
 		lemmaRepository: {
-			getBySurface: async (surface: string) => lemmaMap.get(surface),
+			getLemmaBySurface: async (surface: string) =>
+				lemmaMap.get(surface) ?? null,
 		},
 	});
 });
@@ -88,14 +89,14 @@ describe("createDictionaryQueryService edge cases", () => {
 	it("returns null for lookup and normalization inputs that normalize to empty strings", async () => {
 		const emptyInputService = createDictionaryQueryService({
 			dictRepository: {
-				getByWord: async (): Promise<DictionaryEntry | undefined> => {
+				getByWord: async (): Promise<DictionaryEntry | null> => {
 					throw new Error(
 						"dict lookup should not run for empty normalized input",
 					);
 				},
 			},
 			lemmaRepository: {
-				getBySurface: async (): Promise<string | undefined> => {
+				getLemmaBySurface: async (): Promise<string | null> => {
 					throw new Error(
 						"lemma lookup should not run for empty normalized input",
 					);
@@ -127,13 +128,11 @@ describe("createDictionaryQueryService edge cases", () => {
 		};
 		const fallbackService = createDictionaryQueryService({
 			dictRepository: {
-				getByWord: async (
-					word: string,
-				): Promise<DictionaryEntry | undefined> =>
-					word === "agenda" ? fallbackEntry : undefined,
+				getByWord: async (word: string): Promise<DictionaryEntry | null> =>
+					word === "agenda" ? fallbackEntry : null,
 			},
 			lemmaRepository: {
-				getBySurface: async (): Promise<string | undefined> => undefined,
+				getLemmaBySurface: async (): Promise<string | null> => null,
 			},
 		});
 

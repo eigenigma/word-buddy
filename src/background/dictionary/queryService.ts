@@ -1,17 +1,14 @@
 import type { DictionaryEntry } from "@/shared/dictionary/types";
 import { normalizeLookupTerm, normalizeWord } from "@/shared/dictionary/utils";
 
-export interface DictionaryEntryRepository {
-	readonly getByWord: (word: string) => Promise<DictionaryEntry | undefined>;
-}
-
-export interface LemmaRepository {
-	readonly getBySurface: (surface: string) => Promise<string | undefined>;
-}
+import type {
+	DictionaryEntryRepository,
+	LemmaRepository,
+} from "./repositories";
 
 export interface DictionaryQueryServiceDependencies {
 	readonly dictRepository: DictionaryEntryRepository;
-	readonly lemmaRepository: LemmaRepository;
+	readonly lemmaRepository: Pick<LemmaRepository, "getLemmaBySurface">;
 }
 
 export interface DictionaryQueryService {
@@ -29,9 +26,7 @@ export function createDictionaryQueryService(
 				return null;
 			}
 
-			return (
-				(await dependencies.dictRepository.getByWord(normalizedWord)) ?? null
-			);
+			return await dependencies.dictRepository.getByWord(normalizedWord);
 		},
 
 		normalizeSurface: async (surface: string): Promise<string | null> => {
@@ -41,7 +36,7 @@ export function createDictionaryQueryService(
 			}
 
 			const lemma =
-				await dependencies.lemmaRepository.getBySurface(normalizedSurface);
+				await dependencies.lemmaRepository.getLemmaBySurface(normalizedSurface);
 			if (lemma) {
 				return lemma;
 			}

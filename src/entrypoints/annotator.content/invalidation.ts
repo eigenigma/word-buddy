@@ -35,7 +35,6 @@ export function createInvalidationController(
 	return {
 		dispose: (): void => {
 			disposed = true;
-			pending = false;
 		},
 		onInvalidate: async (): Promise<void> => {
 			if (disposed) {

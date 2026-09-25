@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { LemmaEntry } from "@/shared/dictionary/types";
+import { createInMemoryDictionaryRepositories } from "@/test-helpers/dictionaryFixtures";
 
 import { createLemmaExpansionService } from "./lemmaExpansionService";
+import type { LemmaRepository } from "./repositories";
 
 const LEMMA_ROWS: readonly LemmaEntry[] = [
 	{ lemma: "run", surface: "ran" },
@@ -12,11 +14,11 @@ const LEMMA_ROWS: readonly LemmaEntry[] = [
 	{ lemma: "agenda", surface: "agendas" },
 ];
 
-async function listRowsByLemmas(
-	lemmas: readonly string[],
-): Promise<readonly LemmaEntry[]> {
-	return LEMMA_ROWS.filter((row) => lemmas.includes(row.lemma));
-}
+const listRowsByLemmas: LemmaRepository["listByLemmas"] =
+	createInMemoryDictionaryRepositories({
+		dictEntries: [],
+		lemmaEntries: LEMMA_ROWS,
+	}).lemmaRepository.listByLemmas;
 
 describe("createLemmaExpansionService", () => {
 	it("expands each requested lemma to its surfaces plus itself", async () => {

@@ -9,27 +9,15 @@ import type {
 	WordbookEntry,
 	WordbookUpdatePatch,
 } from "../shared/wordbook/types";
+import { createTestDictionaryEntry } from "../test-helpers/dictionaryFixtures";
 import type { BackgroundServices } from "./composition";
 import type { DictionaryResolution } from "./dictionary/resolveService";
 import { createMessageRouter } from "./router";
 
-const TEST_DICTIONARY_ENTRY: DictionaryEntry = {
-	definition: "meeting plan",
-	frequency: {
-		bnc: 1,
-		collins: 1,
-		frq: 1,
-		oxford: true,
-		tags: ["bnc"],
-	},
-	morphology: {
-		exchange: {},
-	},
-	phonetic: "/əˈdʒen.də/",
-	pos: "n.",
-	translation: "议程",
-	word: "agenda",
-};
+const TEST_DICTIONARY_ENTRY: DictionaryEntry = createTestDictionaryEntry(
+	"agenda",
+	{ phonetic: "/əˈdʒen.də/" },
+);
 
 const TEST_SETTINGS: LlmSettings = {
 	apiKey: "sk-test",

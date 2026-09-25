@@ -4,6 +4,7 @@ import type {
 	DictionaryEntry,
 	LemmaEntry,
 } from "../../shared/dictionary/types";
+import { createTestDictionaryEntry } from "../../test-helpers/dictionaryFixtures";
 import { TEST_DICTIONARY_METADATA } from "../../test-helpers/dictionaryMetadata";
 
 import {
@@ -25,23 +26,7 @@ const TEST_MANIFEST: DictionarySeedManifest = {
 };
 
 const TEST_DICT_ENTRIES: readonly DictionaryEntry[] = [
-	{
-		definition: "meeting plan",
-		frequency: {
-			bnc: 1,
-			collins: 1,
-			frq: 1,
-			oxford: true,
-			tags: ["bnc"],
-		},
-		morphology: {
-			exchange: {},
-		},
-		phonetic: null,
-		pos: "n.",
-		translation: "议程",
-		word: "agenda",
-	},
+	createTestDictionaryEntry("agenda"),
 ];
 
 const TEST_LEMMA_ENTRIES: readonly LemmaEntry[] = [

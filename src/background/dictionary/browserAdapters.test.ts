@@ -6,26 +6,11 @@ import type { DictionaryResolveServiceDependencies } from "@/background/dictiona
 import type { DictionarySeedServiceDependencies } from "@/background/dictionary/seed";
 import type { DictionaryEntry, LemmaEntry } from "@/shared/dictionary/types";
 import { sleep } from "@/shared/utils/async";
+import { createTestDictionaryEntry } from "@/test-helpers/dictionaryFixtures";
 
 import { createDictionaryBrowserAdapter } from "./browserAdapters";
 
-const TEST_DICT_ENTRY: DictionaryEntry = {
-	definition: "meeting plan",
-	frequency: {
-		bnc: 1,
-		collins: 1,
-		frq: 1,
-		oxford: true,
-		tags: ["bnc"],
-	},
-	morphology: {
-		exchange: {},
-	},
-	phonetic: null,
-	pos: "n.",
-	translation: "议程",
-	word: "agenda",
-};
+const TEST_DICT_ENTRY: DictionaryEntry = createTestDictionaryEntry("agenda");
 
 const AGENDA_LEMMA_ENTRY: LemmaEntry = {
 	lemma: "agenda",

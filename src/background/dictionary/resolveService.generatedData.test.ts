@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import type { DictionaryEntry, LemmaEntry } from "@/shared/dictionary/types";
+import { createInMemoryDictionaryRepositories } from "@/test-helpers/dictionaryFixtures";
 
 import {
 	createDictionaryAssetLoader,
@@ -38,23 +38,9 @@ async function loadGeneratedDictionary(): Promise<DictionarySeedAssets> {
 let service: DictionaryResolveService;
 
 beforeAll(async () => {
-	const { dictEntries, lemmaEntries } = await loadGeneratedDictionary();
-	const entries = new Map(
-		dictEntries.map((entry: DictionaryEntry) => [entry.word, entry] as const),
+	service = createDictionaryResolveService(
+		createInMemoryDictionaryRepositories(await loadGeneratedDictionary()),
 	);
-	const lemmas = new Map(
-		lemmaEntries.map(
-			(entry: LemmaEntry) => [entry.surface, entry.lemma] as const,
-		),
-	);
-	service = createDictionaryResolveService({
-		dictRepository: {
-			getByWord: async (word: string) => entries.get(word) ?? null,
-		},
-		lemmaRepository: {
-			getLemmaBySurface: async (surface: string) => lemmas.get(surface) ?? null,
-		},
-	});
 });
 
 describe("resolve against the generated dictionary", () => {

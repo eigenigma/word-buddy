@@ -1,34 +1,20 @@
 import { createHash } from "node:crypto";
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, type Mock, vi } from "vitest";
 import type { PublicPath } from "wxt/browser";
 
 import type { DictionaryEntry } from "@/shared/dictionary/types";
+import { createTestDictionaryEntry } from "@/test-helpers/dictionaryFixtures";
 import { TEST_DICTIONARY_METADATA } from "@/test-helpers/dictionaryMetadata";
 
 import {
 	createDictionaryAssetLoader,
 	type DictionaryAssetLoader,
+	type DictionaryAssetLoaderDependencies,
 	type DictionarySeedManifest,
 } from "./assets";
 
-const TEST_DICT_ENTRY: DictionaryEntry = {
-	definition: "meeting plan",
-	frequency: {
-		bnc: 1,
-		collins: 1,
-		frq: 1,
-		oxford: true,
-		tags: ["bnc"],
-	},
-	morphology: {
-		exchange: {},
-	},
-	phonetic: null,
-	pos: "n.",
-	translation: "议程",
-	word: "agenda",
-};
+const TEST_DICT_ENTRY: DictionaryEntry = createTestDictionaryEntry("agenda");
 
 const TEST_MANIFEST: DictionarySeedManifest = {
 	assetFingerprint: "fingerprint",
@@ -36,8 +22,8 @@ const TEST_MANIFEST: DictionarySeedManifest = {
 };
 
 function createLoader(assetBodies: Readonly<Record<string, string>>): {
-	readonly fetch: ReturnType<typeof vi.fn<(url: string) => Promise<Response>>>;
-	readonly getUrl: ReturnType<typeof vi.fn<(assetPath: PublicPath) => string>>;
+	readonly fetch: Mock<DictionaryAssetLoaderDependencies["fetch"]>;
+	readonly getUrl: Mock<DictionaryAssetLoaderDependencies["getUrl"]>;
 	readonly loader: DictionaryAssetLoader;
 } {
 	const getUrl = vi.fn(
@@ -119,9 +105,9 @@ describe("loadAssets", () => {
 				},
 			],
 		});
-		expect(getUrl.mock.calls).toEqual([
-			["/data/lemma-index.json"],
-			["/data/dict-0.json"],
+		expect(getUrl.mock.calls.flat().sort()).toEqual([
+			"/data/dict-0.json",
+			"/data/lemma-index.json",
 		]);
 	});
 

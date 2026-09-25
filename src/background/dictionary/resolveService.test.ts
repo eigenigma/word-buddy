@@ -1,55 +1,35 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, type Mock, vi } from "vitest";
 
-import type { DictionaryEntry } from "@/shared/dictionary/types";
+import type { LemmaEntry } from "@/shared/dictionary/types";
+import {
+	createInMemoryDictionaryRepositories,
+	createTestDictionaryEntry,
+} from "@/test-helpers/dictionaryFixtures";
 
+import type {
+	DictionaryEntryRepository,
+	LemmaRepository,
+} from "./repositories";
 import {
 	createDictionaryResolveService,
 	type DictionaryResolveService,
 } from "./resolveService";
 
-function createEntry(word: string): DictionaryEntry {
-	return {
-		definition: null,
-		frequency: {
-			bnc: null,
-			collins: null,
-			frq: null,
-			oxford: false,
-			tags: [],
-		},
-		morphology: {
-			exchange: {},
-		},
-		phonetic: null,
-		pos: null,
-		translation: `${word} (translation)`,
-		word: word,
-	};
-}
-
 function createFixtureService(
 	words: readonly string[],
-	lemmaBySurface: ReadonlyMap<string, string> = new Map(),
+	lemmaEntries: readonly LemmaEntry[] = [],
 ): {
-	readonly getByWord: ReturnType<
-		typeof vi.fn<(word: string) => Promise<DictionaryEntry | null>>
-	>;
-	readonly getLemmaBySurface: ReturnType<
-		typeof vi.fn<(surface: string) => Promise<string | null>>
-	>;
+	readonly getByWord: Mock<DictionaryEntryRepository["getByWord"]>;
+	readonly getLemmaBySurface: Mock<LemmaRepository["getLemmaBySurface"]>;
 	readonly service: DictionaryResolveService;
 } {
-	const entries = new Map(
-		words.map((word: string) => [word, createEntry(word)] as const),
-	);
-	const getByWord = vi.fn(
-		async (word: string): Promise<DictionaryEntry | null> =>
-			entries.get(word) ?? null,
-	);
-	const getLemmaBySurface = vi.fn(
-		async (surface: string): Promise<string | null> =>
-			lemmaBySurface.get(surface) ?? null,
-	);
+	const { dictRepository, lemmaRepository } =
+		createInMemoryDictionaryRepositories({
+			dictEntries: words.map((word) => createTestDictionaryEntry(word)),
+			lemmaEntries: lemmaEntries,
+		});
+	const getByWord = vi.fn(dictRepository.getByWord);
+	const getLemmaBySurface = vi.fn(lemmaRepository.getLemmaBySurface);
 
 	return {
 		getByWord: getByWord,
@@ -65,21 +45,24 @@ describe("resolve precedence", () => {
 	it("prefers an exact entry over the lemma mapping", async () => {
 		const { getLemmaBySurface, service } = createFixtureService(
 			["run", "running"],
-			new Map([["running", "run"]]),
+			[{ lemma: "run", surface: "running" }],
 		);
 
 		await expect(service.resolve("Running")).resolves.toEqual({
-			entry: createEntry("running"),
+			entry: createTestDictionaryEntry("running"),
 			lemma: "running",
 		});
 		expect(getLemmaBySurface).not.toHaveBeenCalled();
 	});
 
 	it("falls back to the lemma mapping and the lemma's entry", async () => {
-		const { service } = createFixtureService(["go"], new Map([["went", "go"]]));
+		const { service } = createFixtureService(
+			["go"],
+			[{ lemma: "go", surface: "went" }],
+		);
 
 		await expect(service.resolve(" Went ")).resolves.toEqual({
-			entry: createEntry("go"),
+			entry: createTestDictionaryEntry("go"),
 			lemma: "go",
 		});
 	});
@@ -126,7 +109,7 @@ describe("resolve reads", () => {
 	it("reads each distinct key once when a lemma mapping exists", async () => {
 		const { getByWord, service } = createFixtureService(
 			["go"],
-			new Map([["went", "go"]]),
+			[{ lemma: "go", surface: "went" }],
 		);
 
 		await service.resolve("went");
@@ -140,7 +123,7 @@ describe("resolve normalization", () => {
 		const { getByWord, service } = createFixtureService(["ice cream"]);
 
 		await expect(service.resolve(" Ice \n\t Cream ")).resolves.toEqual({
-			entry: createEntry("ice cream"),
+			entry: createTestDictionaryEntry("ice cream"),
 			lemma: "ice cream",
 		});
 		expect(getByWord.mock.calls).toEqual([["ice cream"]]);

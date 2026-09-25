@@ -5,7 +5,9 @@ import {
 
 // Rejects on "blocked" instead of waiting, so a test that leaves a connection
 // open fails right away rather than timing out.
-async function deleteIndexedDatabase(databaseName: string): Promise<void> {
+export async function deleteIndexedDatabase(
+	databaseName: string,
+): Promise<void> {
 	await new Promise<void>((resolve, reject) => {
 		const request = indexedDB.deleteDatabase(databaseName);
 		request.onsuccess = (): void => {

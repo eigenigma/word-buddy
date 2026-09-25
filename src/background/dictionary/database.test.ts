@@ -1,13 +1,15 @@
 import Dexie from "dexie";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { deleteIndexedDatabase } from "@/test-helpers/indexedDb";
+
 import {
 	STATIC_DICTIONARY_DB_NAME,
 	StaticDictionaryDatabase,
 } from "./database";
 
 afterEach(async () => {
-	await Dexie.delete(STATIC_DICTIONARY_DB_NAME);
+	await deleteIndexedDatabase(STATIC_DICTIONARY_DB_NAME);
 });
 
 describe("StaticDictionaryDatabase", () => {

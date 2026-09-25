@@ -34,25 +34,6 @@ const DIRTY_SETTINGS: LlmSettings = {
 	model: "gpt-4.1-mini",
 };
 
-function createDeferred<TValue>(): {
-	readonly promise: Promise<TValue>;
-	reject: (error?: unknown) => void;
-	resolve: (value: TValue) => void;
-} {
-	let reject!: (error?: unknown) => void;
-	let resolve!: (value: TValue) => void;
-	const promise = new Promise<TValue>((resolvePromise, rejectPromise) => {
-		reject = rejectPromise;
-		resolve = resolvePromise;
-	});
-
-	return {
-		promise: promise,
-		reject: reject,
-		resolve: resolve,
-	};
-}
-
 let settingsData: SettingsDataModule;
 
 beforeEach(async () => {
@@ -149,7 +130,9 @@ describe("saveSettings", () => {
 	});
 
 	it("preserves a newer draft when the user edits during an in-flight save", async () => {
-		const deferred = createDeferred<{ readonly settings: LlmSettings }>();
+		const deferred = Promise.withResolvers<{
+			readonly settings: LlmSettings;
+		}>();
 		settingsData.settingsFormState.value = {
 			draft: DIRTY_SETTINGS,
 			kind: "ready",

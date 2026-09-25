@@ -1,4 +1,4 @@
-import type { LemmaEntry } from "@/shared/dictionary/types";
+import type { LemmaEntry, LemmaExpansions } from "@/shared/dictionary/types";
 
 export interface LemmaReverseRepository {
 	readonly listByLemmas: (
@@ -13,13 +13,13 @@ export interface LemmaExpansionServiceDependencies {
 export interface LemmaExpansionService {
 	readonly expandLemmas: (
 		lemmas: readonly string[],
-	) => Promise<Readonly<Record<string, readonly string[]>>>;
+	) => Promise<LemmaExpansions>;
 }
 
 function buildExpansionResult(
 	lemmas: readonly string[],
 	entries: readonly LemmaEntry[],
-): Readonly<Record<string, readonly string[]>> {
+): LemmaExpansions {
 	const surfacesByLemma = new Map(
 		lemmas.map((lemma) => [lemma, new Set<string>()]),
 	);
@@ -42,7 +42,7 @@ export function createLemmaExpansionService(
 	return {
 		expandLemmas: async (
 			lemmas: readonly string[],
-		): Promise<Readonly<Record<string, readonly string[]>>> => {
+		): Promise<LemmaExpansions> => {
 			if (lemmas.length === 0) {
 				return Object.freeze({});
 			}

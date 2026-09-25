@@ -1,5 +1,6 @@
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 
+import type { LemmaExpansions } from "@/shared/dictionary/types";
 import {
 	type AhoCorasickMatch,
 	type AhoCorasickMatcher,
@@ -53,7 +54,7 @@ export function findCandidateBlocks(
 
 function buildPatternRefs(
 	lemmas: readonly string[],
-	expansions: Readonly<Record<string, readonly string[]>>,
+	expansions: LemmaExpansions,
 ): readonly PatternRef[] {
 	const patterns: PatternRef[] = [];
 	const dedupeKeys = new Set<string>();

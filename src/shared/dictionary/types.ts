@@ -44,6 +44,8 @@ export interface LemmaEntry {
 
 export type LemmaIndex = Readonly<Record<string, string>>;
 
+export type LemmaExpansions = Readonly<Record<string, readonly string[]>>;
+
 export interface DictionarySourceMetadata {
 	readonly rowCount: number;
 	readonly sha256: string;

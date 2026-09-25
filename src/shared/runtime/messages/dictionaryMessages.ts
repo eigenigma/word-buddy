@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import type { DictionaryFrequencyMetadata } from "@/shared/dictionary/types";
+import type {
+	DictionaryFrequencyMetadata,
+	LemmaExpansions,
+} from "@/shared/dictionary/types";
 
 const NumberSchema: z.ZodType<number> = z.custom<number>(
 	(value): value is number => typeof value === "number",
@@ -9,9 +12,9 @@ const NullableStringSchema = z.string().nullable();
 const ReadonlyStringArraySchema: z.ZodType<readonly string[]> = z
 	.array(z.string())
 	.readonly();
-const ReadonlyStringArrayRecordSchema: z.ZodType<
-	Readonly<Record<string, readonly string[]>>
-> = z.record(z.string(), ReadonlyStringArraySchema).readonly();
+const LemmaExpansionsSchema: z.ZodType<LemmaExpansions> = z
+	.record(z.string(), ReadonlyStringArraySchema)
+	.readonly();
 
 const DictionaryFrequencyMetadataSchema: z.ZodType<DictionaryFrequencyMetadata> =
 	z
@@ -93,7 +96,7 @@ export type DictionaryExpandLemmasRequest = z.infer<
 
 export const DictionaryExpandLemmasResponseSchema = z
 	.object({
-		expansions: ReadonlyStringArrayRecordSchema,
+		expansions: LemmaExpansionsSchema,
 	})
 	.readonly();
 export type DictionaryExpandLemmasResponse = z.infer<

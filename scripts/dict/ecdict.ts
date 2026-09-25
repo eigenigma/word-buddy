@@ -1,11 +1,9 @@
 import { parse } from "csv-parse/sync";
 import { z } from "zod";
 
-import {
-	type DictionaryEntry,
-	type DictionaryRejectionCounts,
-	EXCHANGE_CODES,
-	type ExchangeCode,
+import type {
+	DictionaryEntry,
+	DictionaryRejectionCounts,
 } from "../../src/shared/dictionary/types";
 import { normalizeLookupTerm } from "../../src/shared/dictionary/utils";
 import { compareCodePoints } from "../../src/shared/utils/compare";
@@ -57,8 +55,6 @@ const EcdictRowSchema = z
 
 export type EcdictRow = z.output<typeof EcdictRowSchema>;
 
-const ExchangeCodeSchema = z.enum(EXCHANGE_CODES);
-
 function parseEcdictRow(record: unknown, rowNumber: number): EcdictRow {
 	const result = EcdictRowSchema.safeParse(record);
 	if (!result.success) {
@@ -101,36 +97,6 @@ function hasQualitySignal(row: EcdictRow): boolean {
 	);
 }
 
-export function parseExchangeMap(
-	exchange: string | null,
-	word: string,
-): Partial<Record<ExchangeCode, string>> {
-	if (!exchange) {
-		return {};
-	}
-
-	const mappings: Partial<Record<ExchangeCode, string>> = {};
-	const parts = exchange.split("/");
-
-	for (const part of parts) {
-		const [rawCode, rawValue] = part.split(":", 2);
-		const codeResult = ExchangeCodeSchema.safeParse(rawCode);
-
-		if (!codeResult.success || rawValue === undefined) {
-			throw new Error(`Malformed exchange value for ${word}: ${exchange}`);
-		}
-
-		const normalizedValue = rawValue.trim();
-		if (!normalizedValue) {
-			continue;
-		}
-
-		mappings[codeResult.data] = normalizedValue;
-	}
-
-	return mappings;
-}
-
 function toDictionaryEntry(
 	row: EcdictRow,
 	normalizedWord: string,
@@ -143,9 +109,6 @@ function toDictionaryEntry(
 			frq: row.frq,
 			oxford: row.oxford,
 			tags: splitTags(row.tag),
-		},
-		morphology: {
-			exchange: parseExchangeMap(row.exchange, row.word),
 		},
 		phonetic: row.phonetic,
 		pos: row.pos,

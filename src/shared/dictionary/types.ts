@@ -1,18 +1,3 @@
-export const EXCHANGE_CODES = [
-	"0",
-	"1",
-	"3",
-	"d",
-	"f",
-	"i",
-	"p",
-	"r",
-	"s",
-	"t",
-] as const;
-
-export type ExchangeCode = (typeof EXCHANGE_CODES)[number];
-
 export const DICTIONARY_METADATA_SCHEMA_VERSION = 3;
 
 export interface DictionaryFrequencyMetadata {
@@ -23,14 +8,9 @@ export interface DictionaryFrequencyMetadata {
 	readonly tags: readonly string[];
 }
 
-export interface DictionaryMorphologyMetadata {
-	readonly exchange: Readonly<Partial<Record<ExchangeCode, string>>>;
-}
-
 export interface DictionaryEntry {
 	readonly definition: string | null;
 	readonly frequency: DictionaryFrequencyMetadata;
-	readonly morphology: DictionaryMorphologyMetadata;
 	readonly phonetic: string | null;
 	readonly pos: string | null;
 	readonly translation: string | null;

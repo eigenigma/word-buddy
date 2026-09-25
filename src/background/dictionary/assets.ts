@@ -54,11 +54,6 @@ const DictionaryEntrySchema: z.ZodType<DictionaryEntry> = z
 				tags: z.array(z.string()).readonly(),
 			})
 			.readonly(),
-		morphology: z
-			.object({
-				exchange: z.record(z.string(), z.string()).readonly(),
-			})
-			.readonly(),
 		phonetic: z.string().nullable(),
 		pos: z.string().nullable(),
 		translation: z.string().nullable(),

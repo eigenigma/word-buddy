@@ -5,8 +5,12 @@ import type {
 import { normalizeWord } from "../../src/shared/dictionary/utils";
 import { compareCodePoints } from "../../src/shared/utils/compare";
 import type { EcdictRow } from "./ecdict";
-import { parseExchangeMap } from "./ecdict";
-import { SUPPLEMENTAL_EXCHANGE_CODES, sortStrings } from "./utils";
+import {
+	type ExchangeMap,
+	parseExchangeMap,
+	SUPPLEMENTAL_EXCHANGE_CODES,
+} from "./exchange";
+import { sortStrings } from "./utils";
 
 export interface LemmaBuildResult {
 	readonly counts: LemmaCounts;
@@ -21,8 +25,6 @@ type LemmaCounts = Omit<
 type MutableLemmaCounts = {
 	-readonly [K in keyof LemmaCounts]: LemmaCounts[K];
 };
-
-type ParsedExchangeMap = ReturnType<typeof parseExchangeMap>;
 
 interface LemmaLine {
 	readonly lemma: string;
@@ -136,7 +138,7 @@ function addLemmaMapping(
 
 function collectExchangeSurfaces(
 	row: EcdictRow,
-	exchangeMappings: ParsedExchangeMap,
+	exchangeMappings: ExchangeMap,
 	lemma: string,
 ): readonly string[] {
 	const surfaces = new Set<string>();
@@ -230,7 +232,7 @@ function applySelfMappings(
 }
 
 function resolveExchangeLemma(
-	exchangeMappings: ParsedExchangeMap,
+	exchangeMappings: ExchangeMap,
 	row: EcdictRow,
 	wordSet: ReadonlySet<string>,
 ): string | null {

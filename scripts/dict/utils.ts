@@ -8,16 +8,6 @@ export const QUALITY_SIGNAL_FIELDS = [
 	"collins",
 	"oxford",
 ] as const;
-export const SUPPLEMENTAL_EXCHANGE_CODES = [
-	"3",
-	"d",
-	"f",
-	"i",
-	"p",
-	"r",
-	"s",
-	"t",
-] as const;
 
 export function normalizeText(value: string | null | undefined): string | null {
 	const normalizedValue = value?.trim();

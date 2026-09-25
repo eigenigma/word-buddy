@@ -18,9 +18,6 @@ export function createTestDictionaryEntry(
 			oxford: true,
 			tags: ["bnc"],
 		},
-		morphology: {
-			exchange: {},
-		},
 		phonetic: null,
 		pos: "n.",
 		translation: `${word} translation`,

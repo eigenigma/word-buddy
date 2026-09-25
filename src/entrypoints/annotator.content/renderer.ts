@@ -1,5 +1,7 @@
 import type { AhoCorasickMatch } from "@/shared/matching/ahoCorasick";
 
+import { INJECTED_ATTRIBUTE } from "./injectedMarker";
+
 export interface RendererInput {
 	readonly block: Element;
 	readonly matchesByNode: ReadonlyMap<Text, readonly AhoCorasickMatch[]>;
@@ -28,7 +30,7 @@ function createWrapperSpan(
 	gloss: string,
 ): HTMLSpanElement {
 	const wrapperSpan = documentRef.createElement("span");
-	wrapperSpan.dataset["wbInjected"] = "1";
+	wrapperSpan.setAttribute(INJECTED_ATTRIBUTE, "1");
 	wrapperSpan.dataset["wbLemma"] = lemma;
 	wrapperSpan.textContent = createWrapperText(word, gloss);
 	return wrapperSpan;

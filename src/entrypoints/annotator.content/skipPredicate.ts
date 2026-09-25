@@ -1,3 +1,5 @@
+import { INJECTED_SELECTOR } from "./injectedMarker";
+
 export const BLOCK_SELECTOR =
 	"p, li, td, th, blockquote, article section, h1, h2, h3, h4, h5, h6, dt, dd, figcaption, summary";
 
@@ -14,7 +16,7 @@ const SKIPPED_SELECTOR = [
 	"iframe",
 	"template",
 	'[contenteditable="true"]',
-	"[data-wb-injected]",
+	INJECTED_SELECTOR,
 ].join(", ");
 
 export function isSkippedElement(element: Element): boolean {

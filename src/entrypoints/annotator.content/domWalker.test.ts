@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { collectBlockTextNodes } from "./domWalker";
+import { INJECTED_ATTRIBUTE } from "./injectedMarker";
 
 function createBlock(...children: readonly (Node | string)[]): HTMLElement {
 	const block = document.createElement("p");
@@ -68,7 +69,7 @@ describe("collectBlockTextNodes", () => {
 
 	it("skips glosses already injected into the block", () => {
 		const gloss = createElementWithText("span", "cat(猫)");
-		gloss.setAttribute("data-wb-injected", "1");
+		gloss.setAttribute(INJECTED_ATTRIBUTE, "1");
 		const block = createBlock("The ", gloss, " sat.");
 
 		expect(collectTexts(block)).toStrictEqual(["The ", " sat."]);
@@ -83,7 +84,7 @@ describe("collectBlockTextNodes", () => {
 
 	it("returns no text nodes for blocks inside injected annotations", () => {
 		const wrapper = document.createElement("span");
-		wrapper.setAttribute("data-wb-injected", "1");
+		wrapper.setAttribute(INJECTED_ATTRIBUTE, "1");
 		const block = createElementWithText("p", "word");
 		wrapper.append(block);
 		document.body.append(wrapper);

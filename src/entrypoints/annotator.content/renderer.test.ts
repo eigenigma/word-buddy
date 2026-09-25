@@ -2,6 +2,7 @@
 import { assert, describe, expect, it } from "vitest";
 
 import type { AhoCorasickMatch } from "@/shared/matching/ahoCorasick";
+import { INJECTED_ATTRIBUTE } from "./injectedMarker";
 import { renderAnnotations } from "./renderer";
 
 const MATCH: AhoCorasickMatch = {
@@ -36,7 +37,8 @@ function renderWord(
 function countInjectedWrappers(block: Element): number {
 	return Array.from(block.childNodes).filter(
 		(node) =>
-			node instanceof HTMLSpanElement && node.dataset["wbInjected"] === "1",
+			node instanceof HTMLSpanElement &&
+			node.getAttribute(INJECTED_ATTRIBUTE) === "1",
 	).length;
 }
 

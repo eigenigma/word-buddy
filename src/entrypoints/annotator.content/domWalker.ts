@@ -1,3 +1,4 @@
+import { INJECTED_SELECTOR } from "./injectedMarker";
 import { isSkippedElement } from "./skipPredicate";
 
 function shouldRejectTextNode(textNode: Text, block: Element): boolean {
@@ -7,7 +8,7 @@ function shouldRejectTextNode(textNode: Text, block: Element): boolean {
 
 	let currentElement = textNode.parentElement;
 	while (currentElement) {
-		if (currentElement.closest("[data-wb-injected]")) {
+		if (currentElement.closest(INJECTED_SELECTOR)) {
 			return true;
 		}
 
@@ -26,7 +27,7 @@ function shouldRejectTextNode(textNode: Text, block: Element): boolean {
 }
 
 export function collectBlockTextNodes(block: Element): readonly Text[] {
-	if (isSkippedElement(block) || block.closest("[data-wb-injected]")) {
+	if (isSkippedElement(block) || block.closest(INJECTED_SELECTOR)) {
 		return [];
 	}
 

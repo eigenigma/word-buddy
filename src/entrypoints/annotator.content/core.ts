@@ -12,6 +12,7 @@ import { requestExpandLemmas } from "@/shared/runtime/dictionaryClient";
 import { requestTranslateParagraph } from "@/shared/runtime/llmClient";
 import { requestWordbookList } from "@/shared/runtime/wordbookClient";
 import { collectBlockTextNodes } from "./domWalker";
+import { INJECTED_SELECTOR } from "./injectedMarker";
 import { renderAnnotations } from "./renderer";
 import { BLOCK_SELECTOR, isSkippedElement } from "./skipPredicate";
 
@@ -25,10 +26,7 @@ interface BlockMatchCollection {
 }
 
 export function isRelevantBlock(element: Element): element is HTMLElement {
-	if (
-		!(element instanceof HTMLElement) ||
-		element.closest("[data-wb-injected]")
-	) {
+	if (!(element instanceof HTMLElement) || element.closest(INJECTED_SELECTOR)) {
 		return false;
 	}
 

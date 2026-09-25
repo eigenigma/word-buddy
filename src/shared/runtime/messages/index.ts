@@ -23,11 +23,6 @@ export {
 	LemmaNormalizeRequestSchema,
 	type LemmaNormalizeResponse,
 	LemmaNormalizeResponseSchema,
-	STATIC_DICTIONARY_SEED_STATUS_MESSAGE_TYPE,
-	type StaticDictionarySeedStatusRequest,
-	StaticDictionarySeedStatusRequestSchema,
-	type StaticDictionarySeedStatusResponse,
-	StaticDictionarySeedStatusResponseSchema,
 } from "./dictionaryMessages";
 export {
 	LLM_TRANSLATE_PARAGRAPH_MESSAGE_TYPE,

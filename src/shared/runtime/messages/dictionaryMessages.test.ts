@@ -10,9 +10,6 @@ import {
 	LEMMA_NORMALIZE_MESSAGE_TYPE,
 	LemmaNormalizeRequestSchema,
 	LemmaNormalizeResponseSchema,
-	STATIC_DICTIONARY_SEED_STATUS_MESSAGE_TYPE,
-	StaticDictionarySeedStatusRequestSchema,
-	StaticDictionarySeedStatusResponseSchema,
 } from "./dictionaryMessages";
 
 const VALID_LOOKUP_ENTRY = {
@@ -31,22 +28,6 @@ const VALID_LOOKUP_ENTRY = {
 } as const;
 
 const ACCEPT_CASES = [
-	[
-		"static dictionary seed status request",
-		StaticDictionarySeedStatusRequestSchema,
-		{ type: STATIC_DICTIONARY_SEED_STATUS_MESSAGE_TYPE },
-	],
-	[
-		"static dictionary seed status response",
-		StaticDictionarySeedStatusResponseSchema,
-		{
-			dictCount: 1,
-			hasSeedState: true,
-			lastAction: "seeded",
-			lastError: null,
-			lemmaCount: 2,
-		},
-	],
 	[
 		"dictionary lookup request",
 		DictionaryLookupRequestSchema,
@@ -76,22 +57,6 @@ const ACCEPT_CASES = [
 ] as const;
 
 const REJECT_CASES = [
-	[
-		"static dictionary seed status request",
-		StaticDictionarySeedStatusRequestSchema,
-		{ type: "wrong" },
-	],
-	[
-		"static dictionary seed status response",
-		StaticDictionarySeedStatusResponseSchema,
-		{
-			dictCount: "1",
-			hasSeedState: true,
-			lastAction: "seeded",
-			lastError: null,
-			lemmaCount: 2,
-		},
-	],
 	[
 		"dictionary lookup request",
 		DictionaryLookupRequestSchema,

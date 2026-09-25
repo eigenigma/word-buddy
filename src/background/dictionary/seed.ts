@@ -1,8 +1,6 @@
 import { z } from "zod";
 
 import type { DictionaryEntry, LemmaEntry } from "@/shared/dictionary/types";
-import type { StaticDictionarySeedStatusResponse } from "@/shared/runtime/messages/dictionaryMessages";
-import { toErrorMessage } from "@/shared/utils/errors";
 
 import type { DictionarySeedAssets, DictionarySeedManifest } from "./assets";
 
@@ -13,8 +11,6 @@ const STATIC_DICTIONARY_CHUNK_SIZE = 1000;
 // the rows written to the static tables change shape for the same artifacts.
 export const SEED_FORMAT_VERSION = 1;
 
-type DictionarySeedLastAction = "seeded" | "skipped" | null;
-
 export interface DictionarySeedState {
 	readonly assetFingerprint: string;
 	readonly seedFormatVersion: number;
@@ -22,8 +18,6 @@ export interface DictionarySeedState {
 
 export interface DictionarySeedRepository {
 	readonly clearAll: () => Promise<void>;
-	readonly countDictEntries: () => Promise<number>;
-	readonly countLemmaEntries: () => Promise<number>;
 	readonly isPopulated: () => Promise<boolean>;
 	readonly putDictEntries: (
 		entries: readonly DictionaryEntry[],
@@ -48,13 +42,6 @@ export interface DictionarySeedServiceDependencies {
 
 export interface DictionarySeedService {
 	readonly ensureSeeded: () => Promise<void>;
-	readonly getStatus: () => Promise<StaticDictionarySeedStatusResponse>;
-}
-
-interface DictionarySeedRuntimeState {
-	lastAction: DictionarySeedLastAction;
-	lastError: string | null;
-	seedPromise: Promise<void> | null;
 }
 
 const DictionarySeedStateSchema: z.ZodType<DictionarySeedState> = z
@@ -99,7 +86,6 @@ async function seedEntriesInChunks<TEntry>(
 
 async function performSeed(
 	dependencies: DictionarySeedServiceDependencies,
-	runtimeState: DictionarySeedRuntimeState,
 ): Promise<void> {
 	const [manifest, tablesPopulated, seedState] = await Promise.all([
 		dependencies.loadManifest(),
@@ -111,8 +97,6 @@ async function performSeed(
 		seedState !== null &&
 		matchesDictionarySeedState(seedState, manifest);
 	if (seedIsCurrent) {
-		runtimeState.lastAction = "skipped";
-		runtimeState.lastError = null;
 		return;
 	}
 
@@ -130,26 +114,6 @@ async function performSeed(
 		),
 	]);
 	await dependencies.storage.writeState(createDictionarySeedState(manifest));
-	runtimeState.lastAction = "seeded";
-	runtimeState.lastError = null;
-}
-
-async function collectStatus(
-	dependencies: DictionarySeedServiceDependencies,
-	runtimeState: DictionarySeedRuntimeState,
-): Promise<StaticDictionarySeedStatusResponse> {
-	const [dictCount, lemmaCount, seedState] = await Promise.all([
-		dependencies.repository.countDictEntries(),
-		dependencies.repository.countLemmaEntries(),
-		dependencies.storage.readState(),
-	]);
-	return {
-		dictCount: dictCount,
-		hasSeedState: seedState !== null,
-		lastAction: runtimeState.lastAction,
-		lastError: runtimeState.lastError,
-		lemmaCount: lemmaCount,
-	};
 }
 
 export function createBrowserDictionarySeedStateStorage(): DictionarySeedStateStorage {
@@ -174,36 +138,18 @@ export function createBrowserDictionarySeedStateStorage(): DictionarySeedStateSt
 	};
 }
 
+// One attempt per service lifetime: a failed seed keeps rejecting with the
+// same error, because retrying would reread every asset for each lookup and
+// most failures would repeat anyway. The next background start retries.
 export function createDictionarySeedService(
 	dependencies: DictionarySeedServiceDependencies,
 ): DictionarySeedService {
-	const runtimeState: DictionarySeedRuntimeState = {
-		lastAction: null,
-		lastError: null,
-		seedPromise: null,
-	};
-
-	const ensureSeeded = (): Promise<void> => {
-		runtimeState.seedPromise ??= performSeed(dependencies, runtimeState).catch(
-			(error: unknown): never => {
-				runtimeState.lastAction = null;
-				runtimeState.lastError = toErrorMessage(error);
-				runtimeState.seedPromise = null;
-				throw error;
-			},
-		);
-
-		return runtimeState.seedPromise;
-	};
+	let seedPromise: Promise<void> | null = null;
 
 	return {
-		ensureSeeded: ensureSeeded,
-		getStatus: async (): Promise<StaticDictionarySeedStatusResponse> => {
-			await ensureSeeded().catch((): void => {
-				// Seed failure is already captured in runtimeState.lastError by
-				// ensureSeeded's catch; surface it via collectStatus below.
-			});
-			return await collectStatus(dependencies, runtimeState);
+		ensureSeeded: (): Promise<void> => {
+			seedPromise ??= performSeed(dependencies);
+			return seedPromise;
 		},
 	};
 }

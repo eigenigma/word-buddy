@@ -194,18 +194,18 @@ describe("dictionary seed wiring", () => {
 		expect(seed.storage).toBe(DICTIONARY_SEED_STORAGE);
 	});
 
-	it("writes, counts, and clears rows in staticDictionaryDb", async () => {
+	it("writes and clears rows in staticDictionaryDb", async () => {
 		const { repository } = captureDependencies().seed;
 
 		await repository.putDictEntries([TEST_DICT_ENTRY]);
 		await repository.putLemmaEntries([AGENDA_LEMMA_ENTRY, RUN_LEMMA_ENTRY]);
-		await expect(repository.countDictEntries()).resolves.toBe(1);
-		await expect(repository.countLemmaEntries()).resolves.toBe(2);
+		await expect(staticDictionaryDb.dict.count()).resolves.toBe(1);
+		await expect(staticDictionaryDb.lemma.count()).resolves.toBe(2);
 		await expect(repository.isPopulated()).resolves.toBe(true);
 
 		await repository.clearAll();
-		await expect(repository.countDictEntries()).resolves.toBe(0);
-		await expect(repository.countLemmaEntries()).resolves.toBe(0);
+		await expect(staticDictionaryDb.dict.count()).resolves.toBe(0);
+		await expect(staticDictionaryDb.lemma.count()).resolves.toBe(0);
 		await expect(repository.isPopulated()).resolves.toBe(false);
 	});
 

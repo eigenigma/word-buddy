@@ -11,8 +11,6 @@ import {
 	type LemmaNormalizeRequest,
 	LemmaNormalizeRequestSchema,
 	type LemmaNormalizeResponse,
-	StaticDictionarySeedStatusRequestSchema,
-	type StaticDictionarySeedStatusResponse,
 } from "@/shared/runtime/messages/index";
 
 import { defineMessageHandler, type MessageHandler } from "../routerCore";
@@ -27,14 +25,6 @@ function toLookupResult(entry: DictionaryEntry): DictionaryLookupResult {
 		word: entry.word,
 	};
 }
-
-const staticDictionarySeedStatusHandler = defineMessageHandler({
-	handle: async (
-		services: BackgroundServices,
-	): Promise<StaticDictionarySeedStatusResponse> =>
-		await services.dictionarySeedService.getStatus(),
-	requestSchema: StaticDictionarySeedStatusRequestSchema,
-});
 
 const dictionaryExpandLemmasHandler = defineMessageHandler({
 	handle: async (
@@ -76,7 +66,6 @@ const lemmaNormalizeHandler = defineMessageHandler({
 });
 
 export const dictionaryMessageHandlers: readonly MessageHandler[] = [
-	staticDictionarySeedStatusHandler,
 	dictionaryExpandLemmasHandler,
 	dictionaryLookupHandler,
 	lemmaNormalizeHandler,

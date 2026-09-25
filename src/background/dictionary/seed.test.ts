@@ -11,6 +11,7 @@ import {
 	createBrowserDictionarySeedStateStorage,
 	createDictionarySeedService,
 	type DictionarySeedRepository,
+	type DictionarySeedService,
 	type DictionarySeedState,
 	type DictionarySeedStateStorage,
 	SEED_FORMAT_VERSION,
@@ -64,11 +65,8 @@ function createMatchingSeedState(): DictionarySeedState {
 
 interface InMemoryRepositoryState {
 	clearAllCalls: number;
-	countCalls: number;
 	dictEntries: readonly DictionaryEntry[];
-	dictWriteCalls: number;
 	lemmaEntries: readonly LemmaEntry[];
-	lemmaWriteCalls: number;
 }
 
 interface InMemorySeedStateStorageState {
@@ -87,11 +85,8 @@ function createInMemoryRepository(
 } {
 	const state: InMemoryRepositoryState = {
 		clearAllCalls: 0,
-		countCalls: 0,
 		dictEntries: initialState.dictEntries ?? [],
-		dictWriteCalls: 0,
 		lemmaEntries: initialState.lemmaEntries ?? [],
-		lemmaWriteCalls: 0,
 	};
 
 	return {
@@ -101,26 +96,16 @@ function createInMemoryRepository(
 				state.dictEntries = [];
 				state.lemmaEntries = [];
 			},
-			countDictEntries: async (): Promise<number> => {
-				state.countCalls += 1;
-				return state.dictEntries.length;
-			},
-			countLemmaEntries: async (): Promise<number> => {
-				state.countCalls += 1;
-				return state.lemmaEntries.length;
-			},
 			isPopulated: async (): Promise<boolean> =>
 				state.dictEntries.length > 0 && state.lemmaEntries.length > 0,
 			putDictEntries: async (
 				entries: readonly DictionaryEntry[],
 			): Promise<void> => {
-				state.dictWriteCalls += 1;
 				state.dictEntries = [...state.dictEntries, ...entries];
 			},
 			putLemmaEntries: async (
 				entries: readonly LemmaEntry[],
 			): Promise<void> => {
-				state.lemmaWriteCalls += 1;
 				state.lemmaEntries = [...state.lemmaEntries, ...entries];
 			},
 		},
@@ -166,11 +151,12 @@ function createSeedServiceHarness(
 		readonly seedState?: DictionarySeedState | null;
 	} = {},
 ): {
+	readonly createService: () => DictionarySeedService;
 	readonly loadAssetsCalls: { current: number };
 	readonly loadManifestCalls: { current: number };
 	readonly repository: InMemoryRepositoryState;
 	readonly seedState: InMemorySeedStateStorageState;
-	readonly service: ReturnType<typeof createDictionarySeedService>;
+	readonly service: DictionarySeedService;
 } {
 	const loadManifestCalls = { current: 0 };
 	const loadAssetsCalls = { current: 0 };
@@ -184,33 +170,36 @@ function createSeedServiceHarness(
 	});
 	const storage = createInMemorySeedStateStorage(options.seedState ?? null);
 
-	const service = createDictionarySeedService({
-		loadAssets: async (
-			manifest: DictionarySeedManifest,
-		): Promise<DictionarySeedAssets> => {
-			loadAssetsCalls.current += 1;
-			return await (options.loadAssets?.(manifest) ??
-				Promise.resolve(TEST_ASSETS));
-		},
-		loadManifest: async (): Promise<DictionarySeedManifest> => {
-			loadManifestCalls.current += 1;
-			return await (options.loadManifest?.() ?? Promise.resolve(TEST_MANIFEST));
-		},
-		repository: repository.repository,
-		storage: storage.storage,
-	});
+	const createService = (): DictionarySeedService =>
+		createDictionarySeedService({
+			loadAssets: async (
+				manifest: DictionarySeedManifest,
+			): Promise<DictionarySeedAssets> => {
+				loadAssetsCalls.current += 1;
+				return await (options.loadAssets?.(manifest) ??
+					Promise.resolve(TEST_ASSETS));
+			},
+			loadManifest: async (): Promise<DictionarySeedManifest> => {
+				loadManifestCalls.current += 1;
+				return await (options.loadManifest?.() ??
+					Promise.resolve(TEST_MANIFEST));
+			},
+			repository: repository.repository,
+			storage: storage.storage,
+		});
 
 	return {
+		createService: createService,
 		loadAssetsCalls: loadAssetsCalls,
 		loadManifestCalls: loadManifestCalls,
 		repository: repository.state,
 		seedState: storage.state,
-		service: service,
+		service: createService(),
 	};
 }
 
 describe("createDictionarySeedService", () => {
-	it("records the seeded transition after loading manifest and assets", async () => {
+	it("seeds the tables and records the state after loading manifest and assets", async () => {
 		const harness = createSeedServiceHarness();
 
 		await harness.service.ensureSeeded();
@@ -221,16 +210,9 @@ describe("createDictionarySeedService", () => {
 		expect(harness.repository.dictEntries).toEqual(TEST_DICT_ENTRIES);
 		expect(harness.repository.lemmaEntries).toEqual(TEST_LEMMA_ENTRIES);
 		expect(harness.seedState.seedState).toEqual(createMatchingSeedState());
-		expect(await harness.service.getStatus()).toEqual({
-			dictCount: 1,
-			hasSeedState: true,
-			lastAction: "seeded",
-			lastError: null,
-			lemmaCount: 1,
-		});
 	});
 
-	it("records the skipped transition when the stored seed state still matches", async () => {
+	it("skips when the fingerprint and format version still match", async () => {
 		const harness = createSeedServiceHarness({
 			dictEntries: TEST_DICT_ENTRIES,
 			lemmaEntries: TEST_LEMMA_ENTRIES,
@@ -245,16 +227,21 @@ describe("createDictionarySeedService", () => {
 		expect(harness.loadManifestCalls.current).toBe(1);
 		expect(harness.loadAssetsCalls.current).toBe(0);
 		expect(harness.repository.clearAllCalls).toBe(0);
-		expect(harness.repository.countCalls).toBe(0);
-		expect(await harness.service.getStatus()).toEqual({
-			dictCount: 1,
-			hasSeedState: true,
-			lastAction: "skipped",
-			lastError: null,
-			lemmaCount: 1,
-		});
+		expect(harness.seedState.writeCalls).toBe(0);
 	});
 
+	it("runs the seed once for concurrent and later callers", async () => {
+		const harness = createSeedServiceHarness();
+
+		await Promise.all([
+			harness.service.ensureSeeded(),
+			harness.service.ensureSeeded(),
+		]);
+		await harness.service.ensureSeeded();
+
+		expect(harness.loadManifestCalls.current).toBe(1);
+		expect(harness.loadAssetsCalls.current).toBe(1);
+	});
 	it("reseeds when the tables are not populated even though the stored seed state matches", async () => {
 		const harness = createSeedServiceHarness({
 			dictEntries: TEST_DICT_ENTRIES,
@@ -312,23 +299,41 @@ describe("createDictionarySeedService", () => {
 		expect(harness.seedState.seedState).toEqual(createMatchingSeedState());
 	});
 
-	it("records the error transition and resets the in-flight promise after failure", async () => {
+	it("keeps rejecting with the first failure without loading assets again", async () => {
+		const seedError = new Error("asset load failed");
 		const harness = createSeedServiceHarness({
 			loadAssets: async (): Promise<DictionarySeedAssets> => {
-				throw new Error("asset load failed");
+				throw seedError;
 			},
 		});
 
+		await expect(harness.service.ensureSeeded()).rejects.toBe(seedError);
+		await expect(harness.service.ensureSeeded()).rejects.toBe(seedError);
+
+		expect(harness.loadManifestCalls.current).toBe(1);
+		expect(harness.loadAssetsCalls.current).toBe(1);
+		expect(harness.seedState.seedState).toBeNull();
+	});
+
+	it("retries in a fresh service instance after a failure", async () => {
+		let failNextLoad = true;
+		const harness = createSeedServiceHarness({
+			loadAssets: async (): Promise<DictionarySeedAssets> => {
+				if (failNextLoad) {
+					failNextLoad = false;
+					throw new Error("asset load failed");
+				}
+				return TEST_ASSETS;
+			},
+		});
 		await expect(harness.service.ensureSeeded()).rejects.toThrow(
 			"asset load failed",
 		);
-		await expect(harness.service.getStatus()).resolves.toEqual({
-			dictCount: 0,
-			hasSeedState: false,
-			lastAction: null,
-			lastError: "asset load failed",
-			lemmaCount: 0,
-		});
+
+		await harness.createService().ensureSeeded();
+
+		expect(harness.loadAssetsCalls.current).toBe(2);
+		expect(harness.seedState.seedState).toEqual(createMatchingSeedState());
 	});
 });
 

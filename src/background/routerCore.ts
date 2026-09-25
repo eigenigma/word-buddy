@@ -12,7 +12,6 @@ import type {
 	SiteControlIsBlockedResponse,
 	SiteControlListResponse,
 	SiteControlSetResponse,
-	StaticDictionarySeedStatusResponse,
 	WordbookAddResponse,
 	WordbookExistsResponse,
 	WordbookListResponse,
@@ -32,7 +31,6 @@ export type BackgroundResponsePayload =
 	| SiteControlIsBlockedResponse
 	| SiteControlListResponse
 	| SiteControlSetResponse
-	| StaticDictionarySeedStatusResponse
 	| WordbookAddResponse
 	| WordbookExistsResponse
 	| WordbookListResponse

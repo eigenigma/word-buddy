@@ -24,7 +24,7 @@ describe("createBackgroundServices", () => {
 		);
 		expect(new Set(values).size).toBe(values.length);
 		expect(typeof services.annotatorBroadcaster.invalidate).toBe("function");
-		expect(typeof services.dictionarySeedService.getStatus).toBe("function");
+		expect(typeof services.dictionarySeedService.ensureSeeded).toBe("function");
 		expect(typeof services.paragraphTranslator.translateParagraph).toBe(
 			"function",
 		);

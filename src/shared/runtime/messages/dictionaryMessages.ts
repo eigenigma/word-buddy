@@ -44,30 +44,6 @@ export const LEMMA_NORMALIZE_MESSAGE_TYPE =
 	"wordBuddy.dictionary.normalize" as const;
 export const DICTIONARY_EXPAND_LEMMAS_MESSAGE_TYPE =
 	"wordBuddy.dictionary.expandLemmas" as const;
-export const STATIC_DICTIONARY_SEED_STATUS_MESSAGE_TYPE =
-	"wordBuddy.internal.staticDictionarySeedStatus" as const;
-
-export const StaticDictionarySeedStatusRequestSchema = z
-	.object({
-		type: z.literal(STATIC_DICTIONARY_SEED_STATUS_MESSAGE_TYPE),
-	})
-	.readonly();
-export type StaticDictionarySeedStatusRequest = z.infer<
-	typeof StaticDictionarySeedStatusRequestSchema
->;
-
-export const StaticDictionarySeedStatusResponseSchema = z
-	.object({
-		dictCount: NumberSchema,
-		hasSeedState: z.boolean(),
-		lastAction: z.enum(["seeded", "skipped"]).nullable(),
-		lastError: NullableStringSchema,
-		lemmaCount: NumberSchema,
-	})
-	.readonly();
-export type StaticDictionarySeedStatusResponse = z.infer<
-	typeof StaticDictionarySeedStatusResponseSchema
->;
 
 export const DictionaryLookupRequestSchema = z
 	.object({

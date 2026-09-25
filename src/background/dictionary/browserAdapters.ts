@@ -75,8 +75,6 @@ function createDictionarySeedBrowserAdapter(): DictionarySeedService {
 					},
 				);
 			},
-			countDictEntries: () => staticDictionaryDb.dict.count(),
-			countLemmaEntries: () => staticDictionaryDb.lemma.count(),
 			isPopulated: async (): Promise<boolean> => {
 				const [hasDictRows, hasLemmaRows] = await Promise.all([
 					hasRows(staticDictionaryDb.dict),

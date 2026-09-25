@@ -57,16 +57,6 @@ const TEST_WORDBOOK_ENTRY: WordbookEntry = {
 
 const VALID_ROUTER_CASES = [
 	{
-		message: { type: "wordBuddy.internal.staticDictionarySeedStatus" },
-		response: {
-			dictCount: 1,
-			hasSeedState: true,
-			lastAction: "seeded",
-			lastError: null,
-			lemmaCount: 1,
-		},
-	},
-	{
 		message: {
 			lemmas: ["agenda"],
 			type: "wordBuddy.dictionary.expandLemmas",
@@ -211,13 +201,6 @@ function createServices(
 		},
 		dictionarySeedService: {
 			ensureSeeded: async (): Promise<void> => undefined,
-			getStatus: async () => ({
-				dictCount: 1,
-				hasSeedState: true,
-				lastAction: "seeded" as const,
-				lastError: null,
-				lemmaCount: 1,
-			}),
 		},
 		lemmaExpansionService: {
 			expandLemmas: async (lemmas: readonly string[]) =>

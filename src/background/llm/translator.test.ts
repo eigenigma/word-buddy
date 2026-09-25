@@ -28,6 +28,11 @@ const MULTI_WORD_INPUT = {
 	words: ["agenda", "today"],
 } as const;
 
+const REORDERED_MULTI_WORD_INPUT = {
+	paragraph: MULTI_WORD_INPUT.paragraph,
+	words: ["today", "agenda"],
+} as const;
+
 interface HappyPathFetcherState {
 	readonly requestBodies: unknown[];
 	readonly settingsRef: { current: LlmSettings };
@@ -180,12 +185,20 @@ describe("createParagraphTranslator cache hits", () => {
 		});
 		expect(totalCalls.current).toBe(2);
 
-		const secondResult = await harness.translator.translateParagraph({
-			paragraph: MULTI_WORD_INPUT.paragraph,
-			words: ["today", "agenda"],
-		});
+		const secondResult = await harness.translator.translateParagraph(
+			REORDERED_MULTI_WORD_INPUT,
+		);
 		expect(secondResult.cached).toBe(true);
 		expect(totalCalls.current).toBe(2);
+	});
+
+	it("stores the words in the order the caller gave them", async (): Promise<void> => {
+		const { harness } = createHappyPathHarness();
+
+		await harness.translator.translateParagraph(REORDERED_MULTI_WORD_INPUT);
+
+		const [storedEntry] = await harness.database.translations.toArray();
+		expect(storedEntry?.words).toEqual(REORDERED_MULTI_WORD_INPUT.words);
 	});
 });
 

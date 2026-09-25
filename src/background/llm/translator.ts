@@ -1,4 +1,3 @@
-import { sortWordsForHash } from "@/background/translations/hash";
 import type { TranslationCacheService } from "@/background/translations/service";
 import type {
 	TranslateParagraphInput,
@@ -12,6 +11,7 @@ export interface ParagraphTranslatorDependencies {
 	readonly cache: TranslationCacheService;
 	readonly client: OpenAiCompatibleClient;
 	readonly clock: () => number;
+	// Must ignore word order, so reordered requests share one cache entry.
 	readonly computeHash: (
 		model: string,
 		paragraph: string,
@@ -37,11 +37,10 @@ export function createParagraphTranslator(
 			if (!isSettingsComplete(settings)) {
 				throw new Error("LLM settings incomplete");
 			}
-			const sortedWords = sortWordsForHash(input.words);
 			const hash = await dependencies.computeHash(
 				settings.model,
 				input.paragraph,
-				sortedWords,
+				input.words,
 			);
 			const cachedEntry = await dependencies.cache.get(hash);
 
@@ -59,7 +58,7 @@ export function createParagraphTranslator(
 				model: settings.model,
 				paragraph: input.paragraph,
 				translations: translations,
-				words: sortedWords,
+				words: input.words,
 			});
 
 			return {

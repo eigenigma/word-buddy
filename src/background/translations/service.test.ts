@@ -10,7 +10,7 @@ import {
 	WordBuddyUserDatabase,
 } from "../wordbook/database";
 import { createTranslationRepository } from "./browserAdapters";
-import { computeTranslationHash, sortWordsForHash } from "./hash";
+import { computeTranslationHash } from "./hash";
 import { createTranslationCacheService } from "./service";
 
 const TEST_WORD_ENTRY: WordbookEntry = {
@@ -69,13 +69,7 @@ afterAll(async () => {
 });
 
 describe("translation hash helpers", () => {
-	it("sorts words deterministically and computes stable hashes", async () => {
-		expect(sortWordsForHash(["cat", "apple", "bird"])).toEqual([
-			"apple",
-			"bird",
-			"cat",
-		]);
-
+	it("computes stable hashes regardless of word order", async () => {
 		const firstHash = await computeTranslationHash(
 			"model-a",
 			"What is on the agenda today?",

@@ -126,6 +126,7 @@ bun run format           # biome format --write .
 bun run test             # vitest run
 bun run test:watch       # vitest watch mode
 bun run test:coverage    # vitest run --coverage
+bun run bench            # vitest bench, not run in CI
 ```
 
 ### Layout

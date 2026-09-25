@@ -132,6 +132,18 @@ async function fetchAssetText(assetPath: PublicPath): Promise<string> {
 	return await response.text();
 }
 
+async function loadLemmaIndex(): Promise<LemmaIndex> {
+	const text = await fetchAssetText(LEMMA_INDEX_PUBLIC_PATH);
+	return LemmaIndexSchema.parse(JSON.parse(text));
+}
+
+async function loadDictShard(
+	index: number,
+): Promise<readonly DictionaryEntry[]> {
+	const text = await fetchAssetText(dictShardPublicPath(index));
+	return DictionaryEntryArraySchema.parse(JSON.parse(text));
+}
+
 export async function loadDictionarySeedManifest(): Promise<DictionarySeedManifest> {
 	const metadataText = await fetchAssetText(DICTIONARY_META_PUBLIC_PATH);
 	const metadata = DictionaryBuildMetadataSchema.parse(
@@ -147,25 +159,19 @@ export async function loadDictionarySeedManifest(): Promise<DictionarySeedManife
 export async function loadDictionarySeedAssets(
 	manifest: DictionarySeedManifest,
 ): Promise<DictionarySeedAssets> {
-	const [lemmaText, ...shardTexts] = await Promise.all([
-		fetchAssetText(LEMMA_INDEX_PUBLIC_PATH),
-		...manifest.metadata.artifactSha256.dictShards.map(
-			(_, index: number): Promise<string> =>
-				fetchAssetText(dictShardPublicPath(index)),
+	const [lemmaIndex, dictShards] = await Promise.all([
+		loadLemmaIndex(),
+		Promise.all(
+			manifest.metadata.artifactSha256.dictShards.map(
+				(_, index: number): Promise<readonly DictionaryEntry[]> =>
+					loadDictShard(index),
+			),
 		),
 	]);
-	if (lemmaText === undefined) {
-		throw new Error("failed to load lemma asset");
-	}
-	const dictEntries = shardTexts.flatMap(
-		(text: string): readonly DictionaryEntry[] =>
-			DictionaryEntryArraySchema.parse(JSON.parse(text)),
-	);
-	const lemmaIndex = LemmaIndexSchema.parse(JSON.parse(lemmaText));
 
 	return {
 		assetFingerprint: manifest.assetFingerprint,
-		dictEntries: dictEntries,
+		dictEntries: dictShards.flat(),
 		lemmaEntries: toLemmaEntries(lemmaIndex),
 		metadata: manifest.metadata,
 	};

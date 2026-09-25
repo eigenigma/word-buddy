@@ -2,7 +2,11 @@ import type {
 	DictionaryEntry,
 	DictionaryResolution,
 } from "@/shared/dictionary/types";
-import { normalizeLookupTerm, normalizeWord } from "@/shared/dictionary/utils";
+import {
+	foldTermText,
+	normalizeLookupTerm,
+	normalizeWord,
+} from "@/shared/dictionary/utils";
 
 import type {
 	DictionaryEntryRepository,
@@ -18,14 +22,10 @@ export interface DictionaryResolveService {
 	readonly resolve: (selection: string) => Promise<DictionaryResolution | null>;
 }
 
-function toFallbackLemma(selection: string): string | null {
-	const trimmedSelection = selection.trim();
-	return trimmedSelection ? trimmedSelection.toLowerCase() : null;
-}
-
 // Precedence: an exact entry for the selection, then its lemma mapping,
-// then the selection itself. Phrases collapse whitespace for the entry
-// lookup; only single words go through the lemma table.
+// then the selection itself. Every step uses the folded selection, so
+// whitespace collapses everywhere; only single words go through the lemma
+// table.
 export function createDictionaryResolveService(
 	dependencies: DictionaryResolveServiceDependencies,
 ): DictionaryResolveService {
@@ -40,13 +40,17 @@ export function createDictionaryResolveService(
 		resolve: async (
 			selection: string,
 		): Promise<DictionaryResolution | null> => {
-			const selectionTerm = normalizeLookupTerm(selection);
-			const exactEntry = await getEntry(selectionTerm);
+			const term = foldTermText(selection);
+			if (term === "") {
+				return null;
+			}
+
+			const exactEntry = await getEntry(normalizeLookupTerm(term));
 			if (exactEntry) {
 				return { entry: exactEntry, lemma: exactEntry.word };
 			}
 
-			const surface = normalizeWord(selection);
+			const surface = normalizeWord(term);
 			const mappedLemma =
 				surface === null
 					? null
@@ -58,11 +62,7 @@ export function createDictionaryResolveService(
 				};
 			}
 
-			// The fallback looks up as the selection's own term, which just missed.
-			const fallbackLemma = toFallbackLemma(selection);
-			return fallbackLemma === null
-				? null
-				: { entry: null, lemma: fallbackLemma };
+			return { entry: null, lemma: term };
 		},
 	};
 }

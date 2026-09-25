@@ -129,6 +129,19 @@ describe("resolve normalization", () => {
 		expect(getByWord.mock.calls).toEqual([["ice cream"]]);
 	});
 
+	it("collapses whitespace inside a fallback lemma", async () => {
+		const { service } = createFixtureService([]);
+
+		await expect(service.resolve("Ice \n Cream")).resolves.toEqual({
+			entry: null,
+			lemma: "ice cream",
+		});
+		await expect(service.resolve(" Café \t au  lait ")).resolves.toEqual({
+			entry: null,
+			lemma: "café au lait",
+		});
+	});
+
 	it("sends only single words to the lemma table", async () => {
 		const { getLemmaBySurface, service } = createFixtureService([]);
 

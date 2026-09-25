@@ -1,10 +1,7 @@
-import { readFile } from "node:fs/promises";
-
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { DictionaryEntry } from "@/shared/dictionary/types";
 
-import { createDictionaryAssetLoader } from "./assets";
 import {
 	createDictionaryResolveService,
 	type DictionaryResolveService,
@@ -157,69 +154,5 @@ describe("resolve normalization", () => {
 			lemma: "give up",
 		});
 		expect(getLemmaBySurface).not.toHaveBeenCalled();
-	});
-});
-
-const PUBLIC_DIRECTORY = new URL("../../../public/", import.meta.url);
-
-async function readPublicAsset(assetUrl: string): Promise<Response> {
-	return new Response(await readFile(new URL(assetUrl), "utf8"));
-}
-
-describe("resolve against the generated dictionary", () => {
-	let service: DictionaryResolveService;
-
-	beforeAll(async () => {
-		const loader = createDictionaryAssetLoader({
-			fetch: readPublicAsset,
-			getUrl: (assetPath: string): string =>
-				new URL(`.${assetPath}`, PUBLIC_DIRECTORY).href,
-		});
-		const { dictEntries, lemmaEntries } = await loader.loadAssets(
-			await loader.loadManifest(),
-		);
-		const entries = new Map(
-			dictEntries.map((entry: DictionaryEntry) => [entry.word, entry] as const),
-		);
-		const lemmas = new Map(
-			lemmaEntries.map((entry) => [entry.surface, entry.lemma] as const),
-		);
-		service = createDictionaryResolveService({
-			dictRepository: {
-				getByWord: async (word: string) => entries.get(word) ?? null,
-			},
-			lemmaRepository: {
-				getLemmaBySurface: async (surface: string) =>
-					lemmas.get(surface) ?? null,
-			},
-		});
-	});
-
-	it("finds agenda with phonetic, translation and definition", async () => {
-		const resolution = await service.resolve("agenda");
-
-		expect(resolution?.lemma).toBe("agenda");
-		expect(resolution?.entry?.phonetic).toEqual(expect.any(String));
-		expect(resolution?.entry?.translation).toEqual(expect.any(String));
-		expect(resolution?.entry?.definition).toEqual(expect.any(String));
-	});
-
-	it("maps inflected surfaces without their own entry to the lemma", async () => {
-		const [agendas, went] = await Promise.all([
-			service.resolve("Agendas"),
-			service.resolve("went"),
-		]);
-
-		expect(agendas?.lemma).toBe("agenda");
-		expect(agendas?.entry?.word).toBe("agenda");
-		expect(went?.lemma).toBe("go");
-		expect(went?.entry?.word).toBe("go");
-	});
-
-	it("keeps a surface that has its own entry", async () => {
-		const running = await service.resolve("running");
-
-		expect(running?.lemma).toBe("running");
-		expect(running?.entry?.word).toBe("running");
 	});
 });

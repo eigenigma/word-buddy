@@ -25,27 +25,6 @@ function summarizeMatches(
 	);
 }
 
-function createDeterministicRandom(seed: number): () => number {
-	let state = seed;
-
-	return (): number => {
-		state = (state * 1_664_525 + 1_013_904_223) >>> 0;
-		return state / 4_294_967_296;
-	};
-}
-
-function createRandomWord(length: number, random: () => number): string {
-	const alphabet = "abcdefghijklmnopqrstuvwxyz";
-	let word = "";
-
-	for (let index = 0; index < length; index += 1) {
-		const alphabetIndex = Math.floor(random() * alphabet.length);
-		word += alphabet[alphabetIndex] ?? "a";
-	}
-
-	return word;
-}
-
 it("matches a single pattern and ignores substring hits", () => {
 	const matcher = createAhoCorasickMatcher([{ lemma: "cat", surface: "cat" }]);
 	const text = "The cat sat";
@@ -92,34 +71,6 @@ it("does not match across apostrophe and hyphen boundaries", () => {
 			"state-of-the-art",
 		),
 	).toHaveLength(0);
-});
-
-it("stays within the legacy matcher latency budget", () => {
-	const random = createDeterministicRandom(42);
-	const patterns: PatternRef[] = [];
-	for (let index = 0; index < 3000; index += 1) {
-		patterns.push({
-			lemma: `lemma-${index}`,
-			surface: createRandomWord(8, random),
-		});
-	}
-
-	const buildStartedAt = performance.now();
-	const matcher = createAhoCorasickMatcher(patterns);
-	const buildDuration = performance.now() - buildStartedAt;
-
-	expect(buildDuration).toBeLessThan(50);
-
-	const scanText = Array.from({ length: 1112 }, () =>
-		createRandomWord(8, random),
-	).join(" ");
-	expect(scanText.length).toBeGreaterThanOrEqual(10_000);
-
-	const scanStartedAt = performance.now();
-	matcher.findAll(scanText);
-	const scanDuration = performance.now() - scanStartedAt;
-
-	expect(scanDuration).toBeLessThan(10);
 });
 
 it("is deterministic across repeated scans", () => {

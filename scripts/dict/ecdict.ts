@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import {
 	type DictionaryEntry,
+	type DictionaryRejectionCounts,
 	EXCHANGE_CODES,
 	type ExchangeCode,
 } from "../../src/shared/dictionary/types";
@@ -15,16 +16,8 @@ import {
 } from "./utils";
 
 export interface DictionaryBuildResult {
-	readonly counts: {
-		readonly duplicateDictEntriesDiscarded: number;
-		readonly rejectedRows: {
-			readonly duplicateWord: number;
-			readonly emptyMeaning: number;
-			readonly nonLexicalWord: number;
-			readonly weakSignal: number;
-		};
-	};
 	readonly entries: readonly DictionaryEntry[];
+	readonly rejectedRows: DictionaryRejectionCounts;
 	readonly wordSet: ReadonlySet<string>;
 }
 
@@ -299,11 +292,8 @@ export function buildDictionaryEntries(
 	);
 
 	return {
-		counts: {
-			duplicateDictEntriesDiscarded: rejectedRows.duplicateWord,
-			rejectedRows: rejectedRows,
-		},
 		entries: entries,
+		rejectedRows: rejectedRows,
 		wordSet: wordSet,
 	};
 }

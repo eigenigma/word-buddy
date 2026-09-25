@@ -6,11 +6,12 @@ import {
 	dictShardPublicPath,
 	LEMMA_INDEX_PUBLIC_PATH,
 } from "@/shared/dictionary/assetPaths";
-import type {
-	DictionaryBuildMetadata,
-	DictionaryEntry,
-	LemmaEntry,
-	LemmaIndex,
+import {
+	DICTIONARY_METADATA_SCHEMA_VERSION,
+	type DictionaryBuildMetadata,
+	type DictionaryEntry,
+	type LemmaEntry,
+	type LemmaIndex,
 } from "@/shared/dictionary/types";
 import { sha256HexOfText } from "@/shared/utils/hash";
 
@@ -56,7 +57,12 @@ const LemmaIndexSchema: z.ZodType<LemmaIndex> = z
 
 const DictionaryBuildMetadataSchema: z.ZodType<DictionaryBuildMetadata> = z
 	.object({
-		dictShardCount: z.number().int().nonnegative(),
+		artifactSha256: z
+			.object({
+				dictShards: z.array(z.string()).readonly(),
+				lemmaIndex: z.string(),
+			})
+			.readonly(),
 		filterPolicy: z
 			.object({
 				lexicalWordPattern: z.string(),
@@ -68,7 +74,6 @@ const DictionaryBuildMetadataSchema: z.ZodType<DictionaryBuildMetadata> = z
 		outputs: z
 			.object({
 				dictEntries: z.number(),
-				duplicateDictEntriesDiscarded: z.number(),
 				lemmaConflictsSkipped: z.number(),
 				lemmaExchangeMappings: z.number(),
 				lemmaEntries: z.number(),
@@ -85,7 +90,7 @@ const DictionaryBuildMetadataSchema: z.ZodType<DictionaryBuildMetadata> = z
 					.readonly(),
 			})
 			.readonly(),
-		schemaVersion: z.literal(1),
+		schemaVersion: z.literal(DICTIONARY_METADATA_SCHEMA_VERSION),
 		sources: z
 			.object({
 				ecdict: z
@@ -142,11 +147,9 @@ export async function loadDictionarySeedManifest(): Promise<DictionarySeedManife
 export async function loadDictionarySeedAssets(
 	manifest: DictionarySeedManifest,
 ): Promise<DictionarySeedAssets> {
-	const { dictShardCount } = manifest.metadata;
 	const [lemmaText, ...shardTexts] = await Promise.all([
 		fetchAssetText(LEMMA_INDEX_PUBLIC_PATH),
-		...Array.from(
-			{ length: dictShardCount },
+		...manifest.metadata.artifactSha256.dictShards.map(
 			(_, index: number): Promise<string> =>
 				fetchAssetText(dictShardPublicPath(index)),
 		),

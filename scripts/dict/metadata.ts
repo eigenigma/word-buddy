@@ -1,36 +1,60 @@
-import type {
-	DictionaryBuildMetadata,
-	DictionaryBuildOutputCounts,
+import {
+	DICTIONARY_METADATA_SCHEMA_VERSION,
+	type DictionaryArtifactHashes,
+	type DictionaryBuildMetadata,
+	type DictionaryBuildOutputCounts,
 } from "../../src/shared/dictionary/types";
 import { LOOKUP_TERM_PATTERN } from "../../src/shared/dictionary/utils";
+import type { DictionaryBuildResult } from "./ecdict";
+import type { LemmaBuildResult } from "./lemma";
+import { DICTIONARY_SOURCES, type DictionarySourceName } from "./sources";
 import { QUALITY_SIGNAL_FIELDS } from "./utils";
 
+interface DictionaryBuildMetadataInput {
+	readonly artifactSha256: DictionaryArtifactHashes;
+	readonly dictionaryBuild: DictionaryBuildResult;
+	readonly lemmaBuild: LemmaBuildResult;
+	readonly sourceRowCounts: Readonly<Record<DictionarySourceName, number>>;
+}
+
+function collectOutputCounts(
+	dictionaryBuild: DictionaryBuildResult,
+	lemmaBuild: LemmaBuildResult,
+): DictionaryBuildOutputCounts {
+	return {
+		dictEntries: dictionaryBuild.entries.length,
+		lemmaConflictsSkipped: lemmaBuild.counts.lemmaConflictsSkipped,
+		lemmaEntries: lemmaBuild.counts.lemmaEntries,
+		lemmaExchangeMappings: lemmaBuild.counts.lemmaExchangeMappings,
+		lemmaPrimaryMappings: lemmaBuild.counts.lemmaPrimaryMappings,
+		lemmaSelfMappings: lemmaBuild.counts.lemmaSelfMappings,
+		lemmaSkippedMissingDictionary:
+			lemmaBuild.counts.lemmaSkippedMissingDictionary,
+		rejectedRows: dictionaryBuild.rejectedRows,
+	};
+}
+
 export function createDictionaryBuildMetadata(
-	ecdictRowCount: number,
-	lemmaRowCount: number,
-	ecdictHash: string,
-	lemmaHash: string,
-	outputCounts: DictionaryBuildOutputCounts,
-	dictShardCount: number,
+	input: DictionaryBuildMetadataInput,
 ): DictionaryBuildMetadata {
 	return {
-		dictShardCount: dictShardCount,
+		artifactSha256: input.artifactSha256,
 		filterPolicy: {
 			lexicalWordPattern: LOOKUP_TERM_PATTERN.source,
 			requireMeaning: true,
 			requireQualitySignal: [...QUALITY_SIGNAL_FIELDS],
 			retainLowercaseHeadwordsOnly: true,
 		},
-		outputs: outputCounts,
-		schemaVersion: 1,
+		outputs: collectOutputCounts(input.dictionaryBuild, input.lemmaBuild),
+		schemaVersion: DICTIONARY_METADATA_SCHEMA_VERSION,
 		sources: {
 			ecdict: {
-				rowCount: ecdictRowCount,
-				sha256: ecdictHash,
+				rowCount: input.sourceRowCounts.ecdict,
+				sha256: DICTIONARY_SOURCES.ecdict.sha256,
 			},
 			lemma: {
-				rowCount: lemmaRowCount,
-				sha256: lemmaHash,
+				rowCount: input.sourceRowCounts.lemma,
+				sha256: DICTIONARY_SOURCES.lemma.sha256,
 			},
 		},
 	};

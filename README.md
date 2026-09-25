@@ -87,8 +87,9 @@ pins each one to an upstream commit and a SHA-256.
 2. `bun run build:dict` checks `data/raw/` against the same hashes, then
    generates sharded dictionary artifacts under `public/data/` (`dict-0.json`,
    `dict-1.json`, ... plus `lemma-index.json` and `dict-meta.json`). Shards
-   are sized to stay under AMO's 5MB per-file linter threshold; the exact
-   count is recorded in `dictShardCount` of `dict-meta.json`.
+   are sized to stay under AMO's 5MB per-file linter threshold;
+   `dict-meta.json` records the SHA-256 of every shard and of
+   `lemma-index.json`.
 
 ### Reproducing an AMO submission build
 

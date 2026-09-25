@@ -1,7 +1,13 @@
-import type { DictionaryBuildMetadata } from "../shared/dictionary/types";
+import {
+	DICTIONARY_METADATA_SCHEMA_VERSION,
+	type DictionaryBuildMetadata,
+} from "../shared/dictionary/types";
 
 export const TEST_DICTIONARY_METADATA: DictionaryBuildMetadata = {
-	dictShardCount: 1,
+	artifactSha256: {
+		dictShards: ["dict-0-sha"],
+		lemmaIndex: "lemma-index-sha",
+	},
 	filterPolicy: {
 		lexicalWordPattern: "^[a-z]+$",
 		requireMeaning: true,
@@ -10,10 +16,9 @@ export const TEST_DICTIONARY_METADATA: DictionaryBuildMetadata = {
 	},
 	outputs: {
 		dictEntries: 1,
-		duplicateDictEntriesDiscarded: 0,
 		lemmaConflictsSkipped: 0,
-		lemmaExchangeMappings: 0,
 		lemmaEntries: 1,
+		lemmaExchangeMappings: 0,
 		lemmaPrimaryMappings: 1,
 		lemmaSelfMappings: 1,
 		lemmaSkippedMissingDictionary: 0,
@@ -24,7 +29,7 @@ export const TEST_DICTIONARY_METADATA: DictionaryBuildMetadata = {
 			weakSignal: 0,
 		},
 	},
-	schemaVersion: 1,
+	schemaVersion: DICTIONARY_METADATA_SCHEMA_VERSION,
 	sources: {
 		ecdict: {
 			rowCount: 1,

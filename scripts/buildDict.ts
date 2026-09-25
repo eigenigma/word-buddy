@@ -6,10 +6,7 @@ import {
 	dictShardPublicPath,
 	LEMMA_INDEX_PUBLIC_PATH,
 } from "../src/shared/dictionary/assetPaths";
-import type {
-	DictionaryBuildOutputCounts,
-	DictionaryEntry,
-} from "../src/shared/dictionary/types";
+import type { DictionaryEntry } from "../src/shared/dictionary/types";
 import { createNodeSourceFileIo } from "./dict/nodeSourceFileIo";
 import {
 	buildDictionaryEntries,
@@ -20,11 +17,17 @@ import {
 } from "./dict/pipeline";
 import { readVerifiedSource, type SourceFileIo } from "./dict/sourceFiles";
 import { DICTIONARY_SOURCES, type DictionarySource } from "./dict/sources";
+import { sha256Hex } from "./dict/utils";
 
 const REPOSITORY_ROOT_URL = new URL("../", import.meta.url);
 const PUBLIC_DIRECTORY_URL = new URL("public/", REPOSITORY_ROOT_URL);
 
 const DICT_SHARD_BYTE_LIMIT = 4 * 1024 * 1024;
+
+interface SerializedArtifact {
+	readonly publicPath: string;
+	readonly text: string;
+}
 
 function publicFileUrl(publicPath: string): URL {
 	return new URL(`.${publicPath}`, PUBLIC_DIRECTORY_URL);
@@ -76,30 +79,17 @@ function splitEntriesIntoShards(
 // The build owns the whole directory, so clearing it drops any file a
 // previous build wrote under a name this one no longer produces.
 async function writeArtifacts(
-	dictShards: readonly (readonly DictionaryEntry[])[],
-	lemmaIndex: unknown,
-	metadata: unknown,
+	artifacts: readonly SerializedArtifact[],
 ): Promise<void> {
 	const outputDirectoryUrl = publicFileUrl(DICTIONARY_PUBLIC_DIRECTORY);
 	await rm(outputDirectoryUrl, { force: true, recursive: true });
 	await mkdir(outputDirectoryUrl, { recursive: true });
-	await Promise.all([
-		...dictShards.map(
-			(shard, index): Promise<void> =>
-				writeFile(
-					publicFileUrl(dictShardPublicPath(index)),
-					serializeJson(shard),
-				),
+	await Promise.all(
+		artifacts.map(
+			(artifact: SerializedArtifact): Promise<void> =>
+				writeFile(publicFileUrl(artifact.publicPath), artifact.text),
 		),
-		writeFile(
-			publicFileUrl(LEMMA_INDEX_PUBLIC_PATH),
-			serializeJson(lemmaIndex),
-		),
-		writeFile(
-			publicFileUrl(DICTIONARY_META_PUBLIC_PATH),
-			serializeJson(metadata, true),
-		),
-	]);
+	);
 }
 
 async function main(): Promise<void> {
@@ -115,32 +105,41 @@ async function main(): Promise<void> {
 		dictionaryBuild.wordSet,
 		lemmaText,
 	);
-	const dictShards = splitEntriesIntoShards(dictionaryBuild.entries);
-	const outputCounts: DictionaryBuildOutputCounts = {
-		dictEntries: dictionaryBuild.entries.length,
-		duplicateDictEntriesDiscarded:
-			dictionaryBuild.counts.duplicateDictEntriesDiscarded,
-		lemmaConflictsSkipped: lemmaBuild.counts.lemmaConflictsSkipped,
-		lemmaEntries: lemmaBuild.counts.lemmaEntries,
-		lemmaExchangeMappings: lemmaBuild.counts.lemmaExchangeMappings,
-		lemmaPrimaryMappings: lemmaBuild.counts.lemmaPrimaryMappings,
-		lemmaSelfMappings: lemmaBuild.counts.lemmaSelfMappings,
-		lemmaSkippedMissingDictionary:
-			lemmaBuild.counts.lemmaSkippedMissingDictionary,
-		rejectedRows: dictionaryBuild.counts.rejectedRows,
-	};
-	const metadata = createDictionaryBuildMetadata(
-		parsedRows.length,
-		countLemmaRows(lemmaText),
-		DICTIONARY_SOURCES.ecdict.sha256,
-		DICTIONARY_SOURCES.lemma.sha256,
-		outputCounts,
-		dictShards.length,
+	const shardArtifacts = splitEntriesIntoShards(dictionaryBuild.entries).map(
+		(shard: readonly DictionaryEntry[], index: number): SerializedArtifact => ({
+			publicPath: dictShardPublicPath(index),
+			text: serializeJson(shard),
+		}),
 	);
+	const lemmaIndexArtifact: SerializedArtifact = {
+		publicPath: LEMMA_INDEX_PUBLIC_PATH,
+		text: serializeJson(lemmaBuild.index),
+	};
+	const metadata = createDictionaryBuildMetadata({
+		artifactSha256: {
+			dictShards: shardArtifacts.map((artifact: SerializedArtifact): string =>
+				sha256Hex(artifact.text),
+			),
+			lemmaIndex: sha256Hex(lemmaIndexArtifact.text),
+		},
+		dictionaryBuild: dictionaryBuild,
+		lemmaBuild: lemmaBuild,
+		sourceRowCounts: {
+			ecdict: parsedRows.length,
+			lemma: countLemmaRows(lemmaText),
+		},
+	});
 
-	await writeArtifacts(dictShards, lemmaBuild.index, metadata);
+	await writeArtifacts([
+		...shardArtifacts,
+		lemmaIndexArtifact,
+		{
+			publicPath: DICTIONARY_META_PUBLIC_PATH,
+			text: serializeJson(metadata, true),
+		},
+	]);
 	process.stdout.write(
-		`Generated ${dictionaryBuild.entries.length} dictionary entries across ${dictShards.length} shard(s) and ${lemmaBuild.counts.lemmaEntries} lemma mappings.\n`,
+		`Generated ${dictionaryBuild.entries.length} dictionary entries across ${shardArtifacts.length} shard(s) and ${lemmaBuild.counts.lemmaEntries} lemma mappings.\n`,
 	);
 }
 

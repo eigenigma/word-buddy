@@ -13,6 +13,8 @@ export const EXCHANGE_CODES = [
 
 export type ExchangeCode = (typeof EXCHANGE_CODES)[number];
 
+export const DICTIONARY_METADATA_SCHEMA_VERSION = 2;
+
 export interface DictionaryFrequencyMetadata {
 	readonly bnc: number | null;
 	readonly collins: number | null;
@@ -56,7 +58,6 @@ export interface DictionaryRejectionCounts {
 
 export interface DictionaryBuildOutputCounts {
 	readonly dictEntries: number;
-	readonly duplicateDictEntriesDiscarded: number;
 	readonly lemmaConflictsSkipped: number;
 	readonly lemmaExchangeMappings: number;
 	readonly lemmaEntries: number;
@@ -66,8 +67,13 @@ export interface DictionaryBuildOutputCounts {
 	readonly rejectedRows: DictionaryRejectionCounts;
 }
 
+export interface DictionaryArtifactHashes {
+	readonly dictShards: readonly string[];
+	readonly lemmaIndex: string;
+}
+
 export interface DictionaryBuildMetadata {
-	readonly dictShardCount: number;
+	readonly artifactSha256: DictionaryArtifactHashes;
 	readonly filterPolicy: {
 		readonly lexicalWordPattern: string;
 		readonly requireMeaning: boolean;
@@ -75,7 +81,7 @@ export interface DictionaryBuildMetadata {
 		readonly retainLowercaseHeadwordsOnly: boolean;
 	};
 	readonly outputs: DictionaryBuildOutputCounts;
-	readonly schemaVersion: 1;
+	readonly schemaVersion: typeof DICTIONARY_METADATA_SCHEMA_VERSION;
 	readonly sources: {
 		readonly ecdict: DictionarySourceMetadata;
 		readonly lemma: DictionarySourceMetadata;

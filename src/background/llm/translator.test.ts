@@ -1,5 +1,3 @@
-import "fake-indexeddb/auto";
-
 import { afterEach, assert, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 

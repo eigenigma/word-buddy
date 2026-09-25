@@ -1,5 +1,3 @@
-import "fake-indexeddb/auto";
-
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type {

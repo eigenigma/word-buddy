@@ -1,5 +1,3 @@
-import "fake-indexeddb/auto";
-
 import Dexie, { type Table } from "dexie";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
 

@@ -13,7 +13,6 @@ export {
 	DictionaryExpandLemmasRequestSchema,
 	type DictionaryExpandLemmasResponse,
 	DictionaryExpandLemmasResponseSchema,
-	type DictionaryLookupResult,
 	type DictionaryResolveRequest,
 	DictionaryResolveRequestSchema,
 	type DictionaryResolveResponse,

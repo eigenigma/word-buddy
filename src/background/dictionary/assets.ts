@@ -6,6 +6,7 @@ import {
 	dictShardPublicPath,
 	LEMMA_INDEX_PUBLIC_PATH,
 } from "@/shared/dictionary/assetPaths";
+import { DictionaryEntrySchema } from "@/shared/dictionary/schemas";
 import {
 	DICTIONARY_METADATA_SCHEMA_VERSION,
 	type DictionaryBuildMetadata,
@@ -41,25 +42,6 @@ export interface DictionaryAssetLoader {
 	) => Promise<DictionarySeedAssets>;
 	readonly loadManifest: () => Promise<DictionarySeedManifest>;
 }
-
-const DictionaryEntrySchema: z.ZodType<DictionaryEntry> = z
-	.object({
-		definition: z.string().nullable(),
-		frequency: z
-			.object({
-				bnc: z.number().nullable(),
-				collins: z.number().nullable(),
-				frq: z.number().nullable(),
-				oxford: z.boolean(),
-				tags: z.array(z.string()).readonly(),
-			})
-			.readonly(),
-		phonetic: z.string().nullable(),
-		pos: z.string().nullable(),
-		translation: z.string().nullable(),
-		word: z.string(),
-	})
-	.readonly();
 
 const DictionaryEntryArraySchema = z.array(DictionaryEntrySchema).readonly();
 

@@ -1,17 +1,10 @@
 import { requestResolve } from "@/shared/runtime/dictionaryClient";
-import type { DictionaryLookupResult } from "@/shared/runtime/messages/dictionaryMessages";
 import {
 	requestWordbookAdd,
 	requestWordbookExists,
 } from "@/shared/runtime/wordbookClient";
 
-export interface ResolvedSelectionPopupState {
-	readonly alreadyAdded: boolean;
-	readonly context: string;
-	readonly entry: DictionaryLookupResult | null;
-	readonly lemma: string;
-	readonly original: string;
-}
+import type { SelectionPopupState, SelectionUiState } from "./state";
 
 interface ResolveSelectionPopupStateInput {
 	readonly context: string;
@@ -20,25 +13,9 @@ interface ResolveSelectionPopupStateInput {
 
 interface AddResolvedSelectionToWordbookInput {
 	readonly addedAt: number;
-	readonly popupState: ResolvedSelectionPopupState;
+	readonly popupState: SelectionPopupState;
 	readonly sourceUrl: string;
 }
-
-interface PopupStateWithLemma {
-	readonly lemma: string;
-}
-
-interface BubbleUiStateLike {
-	readonly kind: "bubble";
-}
-
-type PopupUiStateLike<TPopupState extends PopupStateWithLemma> =
-	| {
-			readonly kind: "card";
-			readonly popup: TPopupState;
-	  }
-	| BubbleUiStateLike
-	| null;
 
 export type AddResolvedSelectionToWordbookResult =
 	| {
@@ -47,11 +24,11 @@ export type AddResolvedSelectionToWordbookResult =
 	  }
 	| {
 			readonly error: null;
-			readonly popupState: ResolvedSelectionPopupState;
+			readonly popupState: SelectionPopupState;
 	  };
 
-export function hasActiveCardPopup<TPopupState extends PopupStateWithLemma>(
-	currentUiState: PopupUiStateLike<TPopupState>,
+export function hasActiveCardPopup(
+	currentUiState: SelectionUiState | null,
 	lemma: string,
 ): boolean {
 	return (
@@ -59,9 +36,9 @@ export function hasActiveCardPopup<TPopupState extends PopupStateWithLemma>(
 	);
 }
 
-export function getCurrentPopupState<TPopupState extends PopupStateWithLemma>(
-	currentUiState: PopupUiStateLike<TPopupState>,
-): TPopupState | null {
+export function getCurrentPopupState(
+	currentUiState: SelectionUiState | null,
+): SelectionPopupState | null {
 	return currentUiState?.kind === "card" ? currentUiState.popup : null;
 }
 
@@ -113,7 +90,7 @@ export async function addResolvedSelectionToWordbook({
 export async function resolveSelectionPopupState({
 	context,
 	original,
-}: ResolveSelectionPopupStateInput): Promise<ResolvedSelectionPopupState | null> {
+}: ResolveSelectionPopupStateInput): Promise<SelectionPopupState | null> {
 	if (!original) {
 		return null;
 	}

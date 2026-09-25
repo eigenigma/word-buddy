@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { DictionaryEntry } from "../shared/dictionary/types";
+import type {
+	DictionaryEntry,
+	DictionaryResolution,
+} from "../shared/dictionary/types";
 import type { TranslateParagraphResult } from "../shared/llm/types";
 import type { LlmSettings } from "../shared/settings/types";
 import type { SiteControlState } from "../shared/siteControl/types";
@@ -11,7 +14,6 @@ import type {
 } from "../shared/wordbook/types";
 import { createTestDictionaryEntry } from "../test-helpers/dictionaryFixtures";
 import type { BackgroundServices } from "./composition";
-import type { DictionaryResolution } from "./dictionary/resolveService";
 import { createMessageRouter } from "./router";
 
 const TEST_DICTIONARY_ENTRY: DictionaryEntry = createTestDictionaryEntry(

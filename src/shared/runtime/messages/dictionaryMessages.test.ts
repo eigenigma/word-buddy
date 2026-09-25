@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { DictionaryEntry } from "@/shared/dictionary/types";
+
 import {
 	DICTIONARY_EXPAND_LEMMAS_MESSAGE_TYPE,
 	DICTIONARY_RESOLVE_MESSAGE_TYPE,
@@ -9,7 +11,7 @@ import {
 	DictionaryResolveResponseSchema,
 } from "./dictionaryMessages";
 
-const VALID_LOOKUP_ENTRY = {
+const VALID_ENTRY: DictionaryEntry = {
 	definition: "desc",
 	frequency: {
 		bnc: 1,
@@ -22,7 +24,7 @@ const VALID_LOOKUP_ENTRY = {
 	pos: "n.",
 	translation: "译",
 	word: "agenda",
-} as const;
+};
 
 const ACCEPT_CASES = [
 	[
@@ -33,7 +35,7 @@ const ACCEPT_CASES = [
 	[
 		"dictionary resolve response with an entry",
 		DictionaryResolveResponseSchema,
-		{ resolution: { entry: VALID_LOOKUP_ENTRY, lemma: "agenda" } },
+		{ resolution: { entry: VALID_ENTRY, lemma: "agenda" } },
 	],
 	[
 		"dictionary resolve response without an entry",
@@ -69,8 +71,8 @@ const REJECT_CASES = [
 		{
 			resolution: {
 				entry: {
-					...VALID_LOOKUP_ENTRY,
-					frequency: { ...VALID_LOOKUP_ENTRY.frequency, tags: [1] },
+					...VALID_ENTRY,
+					frequency: { ...VALID_ENTRY.frequency, tags: [1] },
 				},
 				lemma: "agenda",
 			},

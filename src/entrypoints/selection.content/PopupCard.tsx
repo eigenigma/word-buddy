@@ -1,6 +1,6 @@
 import type { JSX } from "preact";
 
-import type { DictionaryLookupResult } from "@/shared/runtime/messages/dictionaryMessages";
+import type { DictionaryEntry } from "@/shared/dictionary/types";
 
 const EMPTY_STATE_LABEL =
 	"No dictionary entry found. You can still add this word to your wordbook.";
@@ -9,7 +9,7 @@ const EXISTING_WORD_LABEL = "Already in wordbook";
 interface PopupCardProps {
 	readonly addError: string | null;
 	readonly alreadyAdded: boolean;
-	readonly entry: DictionaryLookupResult | null;
+	readonly entry: DictionaryEntry | null;
 	readonly lemma: string;
 	readonly onAdd: () => void;
 	readonly onClose: () => void;
@@ -17,7 +17,7 @@ interface PopupCardProps {
 }
 
 function renderFrequencyBadge(
-	entry: DictionaryLookupResult | null,
+	entry: DictionaryEntry | null,
 ): JSX.Element | null {
 	const bncRank = entry?.frequency.bnc;
 
@@ -36,7 +36,7 @@ function formatTranslation(translation: string | null): string {
 	return (translation ?? "").replaceAll("\\n", "\n");
 }
 
-function renderEntryBody(entry: DictionaryLookupResult | null): JSX.Element {
+function renderEntryBody(entry: DictionaryEntry | null): JSX.Element {
 	if (!entry) {
 		return <p className="mt-3 text-slate-500 text-sm">{EMPTY_STATE_LABEL}</p>;
 	}
@@ -50,7 +50,7 @@ function renderEntryBody(entry: DictionaryLookupResult | null): JSX.Element {
 
 function renderAction(
 	alreadyAdded: boolean,
-	entry: DictionaryLookupResult | null,
+	entry: DictionaryEntry | null,
 	onAdd: () => void,
 ): JSX.Element | null {
 	if (alreadyAdded) {

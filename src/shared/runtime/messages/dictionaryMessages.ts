@@ -1,45 +1,23 @@
 import { z } from "zod";
 
+import { DictionaryEntrySchema } from "@/shared/dictionary/schemas";
 import type {
-	DictionaryFrequencyMetadata,
+	DictionaryResolution,
 	LemmaExpansions,
 } from "@/shared/dictionary/types";
 
-const NumberSchema: z.ZodType<number> = z.custom<number>(
-	(value): value is number => typeof value === "number",
-);
-const NullableStringSchema = z.string().nullable();
 const ReadonlyStringArraySchema: z.ZodType<readonly string[]> = z
 	.array(z.string())
 	.readonly();
 const LemmaExpansionsSchema: z.ZodType<LemmaExpansions> = z
 	.record(z.string(), ReadonlyStringArraySchema)
 	.readonly();
-
-const DictionaryFrequencyMetadataSchema: z.ZodType<DictionaryFrequencyMetadata> =
-	z
-		.object({
-			bnc: NumberSchema.nullable(),
-			collins: NumberSchema.nullable(),
-			frq: NumberSchema.nullable(),
-			oxford: z.boolean(),
-			tags: ReadonlyStringArraySchema,
-		})
-		.readonly();
-
-const DictionaryLookupResultSchema = z
+const DictionaryResolutionSchema: z.ZodType<DictionaryResolution> = z
 	.object({
-		definition: NullableStringSchema,
-		frequency: DictionaryFrequencyMetadataSchema,
-		phonetic: NullableStringSchema,
-		pos: NullableStringSchema,
-		translation: NullableStringSchema,
-		word: z.string(),
+		entry: DictionaryEntrySchema.nullable(),
+		lemma: z.string(),
 	})
 	.readonly();
-export type DictionaryLookupResult = z.infer<
-	typeof DictionaryLookupResultSchema
->;
 
 export const DICTIONARY_RESOLVE_MESSAGE_TYPE =
 	"wordBuddy.dictionary.resolve" as const;
@@ -58,13 +36,7 @@ export type DictionaryResolveRequest = z.infer<
 
 export const DictionaryResolveResponseSchema = z
 	.object({
-		resolution: z
-			.object({
-				entry: DictionaryLookupResultSchema.nullable(),
-				lemma: z.string(),
-			})
-			.readonly()
-			.nullable(),
+		resolution: DictionaryResolutionSchema.nullable(),
 	})
 	.readonly();
 export type DictionaryResolveResponse = z.infer<

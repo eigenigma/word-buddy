@@ -1,15 +1,13 @@
-import type { DictionaryEntry } from "@/shared/dictionary/types";
+import type {
+	DictionaryEntry,
+	DictionaryResolution,
+} from "@/shared/dictionary/types";
 import { normalizeLookupTerm, normalizeWord } from "@/shared/dictionary/utils";
 
 import type {
 	DictionaryEntryRepository,
 	LemmaRepository,
 } from "./repositories";
-
-export interface DictionaryResolution {
-	readonly entry: DictionaryEntry | null;
-	readonly lemma: string;
-}
 
 export interface DictionaryResolveServiceDependencies {
 	readonly dictRepository: DictionaryEntryRepository;

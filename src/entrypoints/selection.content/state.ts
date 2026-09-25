@@ -1,13 +1,11 @@
 import { signal } from "@preact/signals";
 
+import type { DictionaryResolution } from "@/shared/dictionary/types";
 import type { SelectionSnapshot } from "@/shared/dom/selection";
-import type { DictionaryLookupResult } from "@/shared/runtime/messages/dictionaryMessages";
 
-export interface SelectionPopupState {
+export interface SelectionPopupState extends DictionaryResolution {
 	readonly alreadyAdded: boolean;
 	readonly context: string;
-	readonly entry: DictionaryLookupResult | null;
-	readonly lemma: string;
 	readonly original: string;
 }
 

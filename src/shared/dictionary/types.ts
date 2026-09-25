@@ -17,6 +17,11 @@ export interface DictionaryEntry {
 	readonly word: string;
 }
 
+export interface DictionaryResolution {
+	readonly entry: DictionaryEntry | null;
+	readonly lemma: string;
+}
+
 export interface LemmaEntry {
 	readonly lemma: string;
 	readonly surface: string;

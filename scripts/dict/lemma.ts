@@ -1,12 +1,9 @@
 import type { LemmaIndex } from "../../src/shared/dictionary/types";
 import { normalizeWord } from "../../src/shared/dictionary/utils";
+import { compareCodePoints } from "../../src/shared/utils/compare";
 import type { EcdictRow } from "./ecdict";
 import { parseExchangeMap } from "./ecdict";
-import {
-	compareCodeUnits,
-	SUPPLEMENTAL_EXCHANGE_CODES,
-	sortStrings,
-} from "./utils";
+import { SUPPLEMENTAL_EXCHANGE_CODES, sortStrings } from "./utils";
 
 export interface LemmaBuildResult {
 	readonly counts: LemmaCounts;
@@ -166,7 +163,7 @@ function collectExchangeSurfaces(
 function sortLemmaIndex(index: Map<string, string>): LemmaIndex {
 	return Object.fromEntries(
 		[...index.entries()].sort(([leftSurface], [rightSurface]): number =>
-			compareCodeUnits(leftSurface, rightSurface),
+			compareCodePoints(leftSurface, rightSurface),
 		),
 	);
 }

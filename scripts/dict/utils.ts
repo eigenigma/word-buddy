@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { compareCodePoints } from "../../src/shared/utils/compare";
+
 export const QUALITY_SIGNAL_FIELDS = [
 	"bnc",
 	"frq",
@@ -43,22 +45,8 @@ export function parseInteger(value: string | null): number | null {
 	return Number.isNaN(parsedValue) ? null : parsedValue;
 }
 
-// Locale-independent, so the generated assets do not depend on the build
-// machine's locale.
-export function compareCodeUnits(left: string, right: string): number {
-	if (left < right) {
-		return -1;
-	}
-
-	if (left > right) {
-		return 1;
-	}
-
-	return 0;
-}
-
 export function sortStrings(values: Iterable<string>): readonly string[] {
-	return [...new Set(values)].sort(compareCodeUnits);
+	return [...new Set(values)].sort(compareCodePoints);
 }
 
 export function sha256Hex(content: string | Uint8Array): string {

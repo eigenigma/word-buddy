@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { sortStrings } from "./utils";
 
 describe("sortStrings", () => {
-	it("orders by code unit instead of locale collation", () => {
+	it("orders by code point instead of locale collation", () => {
 		expect(sortStrings(["b", "a", "B", "_", "a-b", "ab"])).toEqual([
 			"B",
 			"_",

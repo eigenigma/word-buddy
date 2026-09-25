@@ -8,12 +8,8 @@ import {
 	type ExchangeCode,
 } from "../../src/shared/dictionary/types";
 import { normalizeLookupTerm } from "../../src/shared/dictionary/utils";
-import {
-	compareCodeUnits,
-	normalizeText,
-	parseInteger,
-	sortStrings,
-} from "./utils";
+import { compareCodePoints } from "../../src/shared/utils/compare";
+import { normalizeText, parseInteger, sortStrings } from "./utils";
 
 export interface DictionaryBuildResult {
 	readonly entries: readonly DictionaryEntry[];
@@ -238,7 +234,7 @@ function sortEntries(
 ): readonly DictionaryEntry[] {
 	return [...entries].sort(
 		(left: DictionaryEntry, right: DictionaryEntry): number =>
-			compareCodeUnits(left.word, right.word),
+			compareCodePoints(left.word, right.word),
 	);
 }
 

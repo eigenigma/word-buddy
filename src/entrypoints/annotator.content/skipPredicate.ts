@@ -22,3 +22,7 @@ const SKIPPED_SELECTOR = [
 export function isSkippedElement(element: Element): boolean {
 	return element.matches(SKIPPED_SELECTOR);
 }
+
+export function isInSkippedSubtree(element: Element): boolean {
+	return element.closest(SKIPPED_SELECTOR) !== null;
+}

@@ -1,49 +1,30 @@
-import { INJECTED_SELECTOR } from "./injectedMarker";
-import { isSkippedElement } from "./skipPredicate";
+import { isInSkippedSubtree, isSkippedElement } from "./skipPredicate";
 
-function shouldRejectTextNode(textNode: Text, block: Element): boolean {
-	if (textNode.data.length === 0) {
-		return true;
+function acceptBlockNode(node: Node): number {
+	if (node instanceof Text) {
+		return node.data.length === 0
+			? NodeFilter.FILTER_REJECT
+			: NodeFilter.FILTER_ACCEPT;
 	}
 
-	let currentElement = textNode.parentElement;
-	while (currentElement) {
-		if (currentElement.closest(INJECTED_SELECTOR)) {
-			return true;
-		}
-
-		if (isSkippedElement(currentElement)) {
-			return true;
-		}
-
-		if (currentElement === block) {
-			break;
-		}
-
-		currentElement = currentElement.parentElement;
-	}
-
-	return false;
+	// Rejecting an element prunes its whole subtree; skipping only hides the
+	// element itself.
+	return node instanceof Element && isSkippedElement(node)
+		? NodeFilter.FILTER_REJECT
+		: NodeFilter.FILTER_SKIP;
 }
 
 export function collectBlockTextNodes(block: Element): readonly Text[] {
-	if (isSkippedElement(block) || block.closest(INJECTED_SELECTOR)) {
+	if (isInSkippedSubtree(block)) {
 		return [];
 	}
 
-	const documentRef = block.ownerDocument;
+	const treeWalker = block.ownerDocument.createTreeWalker(
+		block,
+		NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT,
+		{ acceptNode: acceptBlockNode },
+	);
 	const textNodes: Text[] = [];
-	const treeWalker = documentRef.createTreeWalker(block, NodeFilter.SHOW_TEXT, {
-		acceptNode: (node: Node): number => {
-			if (!(node instanceof Text)) {
-				return NodeFilter.FILTER_REJECT;
-			}
-
-			return shouldRejectTextNode(node, block)
-				? NodeFilter.FILTER_REJECT
-				: NodeFilter.FILTER_ACCEPT;
-		},
-	});
 
 	let currentNode = treeWalker.nextNode();
 	while (currentNode) {

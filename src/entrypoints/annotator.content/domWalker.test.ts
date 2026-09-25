@@ -79,16 +79,25 @@ describe("collectBlockTextNodes", () => {
 		const block = createElementWithText("pre", "code sample");
 		document.body.append(block);
 
-		expect(collectBlockTextNodes(block)).toStrictEqual([]);
+		expect(collectTexts(block)).toStrictEqual([]);
 	});
 
-	it("returns no text nodes for blocks inside injected annotations", () => {
-		const wrapper = document.createElement("span");
-		wrapper.setAttribute(INJECTED_ATTRIBUTE, "1");
-		const block = createElementWithText("p", "word");
-		wrapper.append(block);
-		document.body.append(wrapper);
+	it.each([
+		["an injected gloss", "span", INJECTED_ATTRIBUTE, "1"],
+		["an editor", "div", "contenteditable", "true"],
+		["a code block", "pre", "class", "language-ts"],
+	])(
+		"returns no text nodes for a block inside %s",
+		(_label: string, tagName: string, attributeName: string, attributeValue: string) => {
+			const ancestor = document.createElement(tagName);
+			ancestor.setAttribute(attributeName, attributeValue);
+			const block = createElementWithText("p", "word");
+			const container = document.createElement("div");
+			container.append(block);
+			ancestor.append(container);
+			document.body.append(ancestor);
 
-		expect(collectBlockTextNodes(block)).toStrictEqual([]);
-	});
+			expect(collectTexts(block)).toStrictEqual([]);
+		},
+	);
 });

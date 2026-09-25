@@ -12,9 +12,8 @@ import { requestExpandLemmas } from "@/shared/runtime/dictionaryClient";
 import { requestTranslateParagraph } from "@/shared/runtime/llmClient";
 import { requestWordbookList } from "@/shared/runtime/wordbookClient";
 import { collectBlockTextNodes } from "./domWalker";
-import { INJECTED_SELECTOR } from "./injectedMarker";
 import { renderAnnotations } from "./renderer";
-import { BLOCK_SELECTOR, isSkippedElement } from "./skipPredicate";
+import { BLOCK_SELECTOR, isInSkippedSubtree } from "./skipPredicate";
 
 export interface MatcherState {
 	matcher: AhoCorasickMatcher | null;
@@ -26,27 +25,14 @@ interface BlockMatchCollection {
 }
 
 export function isRelevantBlock(element: Element): element is HTMLElement {
-	if (!(element instanceof HTMLElement) || element.closest(INJECTED_SELECTOR)) {
-		return false;
-	}
-
-	let currentElement: Element | null = element;
-	while (currentElement) {
-		if (isSkippedElement(currentElement)) {
-			return false;
-		}
-
-		currentElement = currentElement.parentElement;
-	}
-
-	return true;
+	return element instanceof HTMLElement && !isInSkippedSubtree(element);
 }
 
 export function findCandidateBlocks(
 	documentRef: Document,
 ): readonly HTMLElement[] {
 	return Array.from(documentRef.querySelectorAll(BLOCK_SELECTOR)).filter(
-		(block): block is HTMLElement => isRelevantBlock(block),
+		isRelevantBlock,
 	);
 }
 

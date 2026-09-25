@@ -4,7 +4,6 @@ import type { TranslationCacheEntry } from "@/shared/translations/types";
 import type { WordbookEntry } from "@/shared/wordbook/types";
 
 export const WORD_BUDDY_USER_DB_NAME = "wordBuddyUserDb";
-export const WORD_BUDDY_USER_DB_SCHEMA_VERSION = 2;
 
 export class WordBuddyUserDatabase extends Dexie {
 	translations!: Table<TranslationCacheEntry, string>;

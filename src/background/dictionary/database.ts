@@ -3,7 +3,6 @@ import Dexie, { type EntityTable } from "dexie";
 import type { DictionaryEntry, LemmaEntry } from "@/shared/dictionary/types";
 
 export const STATIC_DICTIONARY_DB_NAME = "word-buddy";
-export const STATIC_DICTIONARY_DB_SCHEMA_VERSION = 2;
 
 export class StaticDictionaryDatabase extends Dexie {
 	dict!: EntityTable<DictionaryEntry, "word">;

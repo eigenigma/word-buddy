@@ -90,3 +90,23 @@ Background services are assembled in `src/background/composition.ts`.
 Business logic should receive collaborators through parameters instead of
 instantiating them internally. This keeps tests focused and lets the router,
 storage layer, and services evolve independently.
+
+## Page text
+
+Content scripts do not read `innerText`. `src/shared/dom/sourceText.ts` reads a
+page's own text: a gloss span the annotator injected (marked as defined in
+`src/shared/dom/injectedMarker.ts`) contributes only its word, whitespace
+collapses, and `br` breaks the line. A `SourceTextPolicy` decides which
+subtrees to prune and what each leaves in its place, which text nodes count
+and which elements break lines or separate cells:
+
+- the annotator reads no styles
+  (`src/entrypoints/annotator.content/domWalker.ts`): it prunes skipped subtrees
+  and nested candidate blocks, each leaving at least a space so the words around
+  it stay apart, counts every text node and takes boundaries from tag names, so
+  a block's paragraph is the text it annotates plus the words of its glosses
+- the selection popup follows rendering (`VISIBLE_TEXT_POLICY` in
+  `src/shared/dom/visibleText.ts`): it prunes `display: none` subtrees without
+  a trace, so a hidden element inside a word leaves it whole, counts only
+  visible text and takes boundaries from the computed display, for both the
+  selected word and the sentence around it

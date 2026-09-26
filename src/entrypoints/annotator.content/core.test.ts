@@ -41,6 +41,25 @@ describe("findCandidateBlocks", () => {
 		expect(findCandidateIds()).toStrictEqual(["plain", "nested"]);
 	});
 
+	it("lists article and section as blocks of their own", () => {
+		document.body.append(
+			wrapIn(
+				"article",
+				wrapIn("section", createParagraph("inner"), { id: "section" }),
+				{ id: "article" },
+			),
+			wrapIn("section", createParagraph("outer"), { id: "lone" }),
+		);
+
+		expect(findCandidateIds()).toStrictEqual([
+			"article",
+			"section",
+			"inner",
+			"lone",
+			"outer",
+		]);
+	});
+
 	it("drops blocks under any skipped ancestor, however far up", () => {
 		document.body.append(
 			wrapIn("div", wrapIn("div", createParagraph("in-editor")), {

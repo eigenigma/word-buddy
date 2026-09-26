@@ -1,7 +1,6 @@
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 
 import type { LemmaExpansions } from "@/shared/dictionary/types";
-import { readRenderedText } from "@/shared/dom/renderedText";
 import {
 	type AhoCorasickMatch,
 	type AhoCorasickMatcher,
@@ -12,7 +11,7 @@ import {
 import { requestExpandLemmas } from "@/shared/runtime/dictionaryClient";
 import { requestTranslateParagraph } from "@/shared/runtime/llmClient";
 import { requestWordbookList } from "@/shared/runtime/wordbookClient";
-import { collectBlockTextNodes } from "./domWalker";
+import { collectBlockTextNodes, readBlockSourceText } from "./domWalker";
 import { renderAnnotations } from "./renderer";
 import { BLOCK_SELECTOR, isInSkippedSubtree } from "./skipPredicate";
 
@@ -131,13 +130,8 @@ export async function annotateBlock(
 			return;
 		}
 
-		const paragraph = readRenderedText(block).trim();
-		if (paragraph.length === 0) {
-			return;
-		}
-
 		const response = await requestTranslateParagraph({
-			paragraph: paragraph,
+			paragraph: readBlockSourceText(block),
 			words: lemmas,
 		});
 		if (response.error || response.translations === null) {

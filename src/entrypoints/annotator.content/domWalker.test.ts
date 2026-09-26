@@ -1,10 +1,17 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-import { INJECTED_ATTRIBUTE } from "@/shared/dom/injectedMarker";
-import { collectBlockTextNodes } from "./domWalker";
+import {
+	createGlossSpan,
+	INJECTED_ATTRIBUTE,
+} from "@/shared/dom/injectedMarker";
+import { mountBlock } from "@/test-helpers/dom";
+import { collectBlockTextNodes, readBlockSourceText } from "./domWalker";
 
-function createBlock(...children: readonly (Node | string)[]): HTMLElement {
-	const block = document.createElement("p");
+function createBlock(
+	tagName: string,
+	...children: readonly (Node | string)[]
+): HTMLElement {
+	const block = document.createElement(tagName);
 	block.append(...children);
 	document.body.append(block);
 	return block;
@@ -27,6 +34,7 @@ afterEach(() => {
 describe("collectBlockTextNodes", () => {
 	it("collects every non-empty text node in document order", () => {
 		const block = createBlock(
+			"p",
 			"The cat ",
 			createElementWithText("em", "sat"),
 			document.createTextNode(""),
@@ -51,7 +59,7 @@ describe("collectBlockTextNodes", () => {
 	])("skips text inside <%s>", (tagName: string) => {
 		const skipped = document.createElement(tagName);
 		skipped.append(createElementWithText("span", "hidden"));
-		const block = createBlock("before ", skipped, " after");
+		const block = createBlock("p", "before ", skipped, " after");
 
 		expect(collectTexts(block)).toStrictEqual(["before ", " after"]);
 	});
@@ -61,15 +69,18 @@ describe("collectBlockTextNodes", () => {
 		editable.setAttribute("contenteditable", "true");
 		const nonEditable = createElementWithText("span", "fixed");
 		nonEditable.setAttribute("contenteditable", "false");
-		const block = createBlock(editable, nonEditable);
+		const block = createBlock("p", editable, nonEditable);
 
 		expect(collectTexts(block)).toStrictEqual(["fixed"]);
 	});
 
 	it("skips glosses already injected into the block", () => {
-		const gloss = createElementWithText("span", "cat(猫)");
-		gloss.setAttribute(INJECTED_ATTRIBUTE, "1");
-		const block = createBlock("The ", gloss, " sat.");
+		const gloss = createGlossSpan(document, {
+			gloss: "猫",
+			lemma: "cat",
+			word: "cat",
+		});
+		const block = createBlock("p", "The ", gloss, " sat.");
 
 		expect(collectTexts(block)).toStrictEqual(["The ", " sat."]);
 	});
@@ -99,4 +110,57 @@ describe("collectBlockTextNodes", () => {
 			expect(collectTexts(block)).toStrictEqual([]);
 		},
 	);
+});
+
+describe("collectBlockTextNodes ownership", () => {
+	it("leaves the text of a nested candidate block to that block", () => {
+		const nested = createElementWithText("p", "nested");
+		const block = createBlock("li", "intro ", nested, " tail");
+
+		expect(collectTexts(block)).toStrictEqual(["intro ", " tail"]);
+		expect(collectTexts(nested)).toStrictEqual(["nested"]);
+	});
+});
+
+describe("readBlockSourceText", () => {
+	it("reads only the block's own text, with each gloss as its word", () => {
+		const gloss = createGlossSpan(document, {
+			gloss: "跑",
+			lemma: "run",
+			word: "run",
+		});
+		const block = createBlock(
+			"li",
+			"We ",
+			gloss,
+			" with ",
+			createElementWithText("code", "map"),
+			" daily",
+			createElementWithText("p", "nested text"),
+			"then rest.",
+		);
+
+		expect(readBlockSourceText(block)).toBe("We run with daily\nthen rest.");
+	});
+
+	it("keeps the words around skipped content apart", () => {
+		const block = createBlock(
+			"li",
+			"Use",
+			createElementWithText("code", "map"),
+			"here",
+			createElementWithText("style", "p {}"),
+			"now",
+			createElementWithText("p", "nested"),
+			"after",
+		);
+
+		expect(readBlockSourceText(block)).toBe("Use here now\nafter");
+	});
+
+	it("breaks lines at structural tags it reads through", () => {
+		const block = mountBlock("<li>one<div>two</div>three<br>four</li>");
+
+		expect(readBlockSourceText(block)).toBe("one\ntwo\nthree\nfour");
+	});
 });

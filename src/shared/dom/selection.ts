@@ -1,3 +1,8 @@
+import { readComputedStyle, resolveElement } from "./element";
+import { extractContainingSentence } from "./sentence";
+import { readRangeSourceText, readSourceText } from "./sourceText";
+import { VISIBLE_TEXT_POLICY } from "./visibleText";
+
 const BLOCK_DISPLAY_VALUES = new Set([
 	"block",
 	"flex",
@@ -15,14 +20,6 @@ export interface SelectionSnapshot {
 export interface ViewportPoint {
 	readonly x: number;
 	readonly y: number;
-}
-
-function resolveElement(node: Node): Element | null {
-	if (node instanceof Element) {
-		return node;
-	}
-
-	return node.parentElement;
 }
 
 function snapshotRect(rect: DOMRect | DOMRectReadOnly): DOMRect {
@@ -59,14 +56,11 @@ export function getSelectionRect(
 
 export function findEnclosingBlock(node: Node): HTMLElement {
 	let currentElement = resolveElement(node);
-	const ownerWindow = node.ownerDocument?.defaultView ?? globalThis.window;
 
 	while (currentElement) {
 		if (
 			currentElement instanceof HTMLElement &&
-			BLOCK_DISPLAY_VALUES.has(
-				ownerWindow.getComputedStyle(currentElement).display,
-			)
+			BLOCK_DISPLAY_VALUES.has(readComputedStyle(currentElement).display)
 		) {
 			return currentElement;
 		}
@@ -94,17 +88,28 @@ export function readActiveSelection(
 		return null;
 	}
 
-	const text = selection.toString().trim();
+	const range = selection.getRangeAt(0).cloneRange();
+	// Source text collapses only HTML whitespace, so a selection of other
+	// Unicode spaces such as nbsp still has to be caught here.
+	const text = readRangeSourceText(range, VISIBLE_TEXT_POLICY).trim();
 
-	if (!text) {
+	if (text === "") {
 		return null;
 	}
-
-	const range = selection.getRangeAt(0).cloneRange();
 
 	return {
 		range: range,
 		rect: getSelectionRect(range, fallbackPoint),
 		text: text,
 	};
+}
+
+// The sentence is read with the same policy as the selected word, so the word
+// can be found in it.
+export function readSelectionContext(selection: SelectionSnapshot): string {
+	const block = findEnclosingBlock(selection.range.commonAncestorContainer);
+	return extractContainingSentence(
+		readSourceText(block, VISIBLE_TEXT_POLICY),
+		selection.text,
+	);
 }

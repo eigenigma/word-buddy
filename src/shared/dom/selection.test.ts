@@ -3,9 +3,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+	restoreCheckVisibility,
+	stubCheckVisibility,
+} from "@/test-helpers/checkVisibility";
+import { mountMarkup, rangeOf, textAt } from "@/test-helpers/dom";
+
+import { createGlossSpan } from "./injectedMarker";
+import {
 	findEnclosingBlock,
 	getSelectionRect,
 	readActiveSelection,
+	readSelectionContext,
 } from "./selection";
 
 const ORIGINAL_GET_BOUNDING_CLIENT_RECT = Object.getOwnPropertyDescriptor(
@@ -54,6 +62,11 @@ function mockRangeGeometry(options: {
 	});
 }
 
+// jsdom lays nothing out, so a range has no geometry until one is mocked.
+function mockEmptyRangeGeometry(): void {
+	mockRangeGeometry({ boundingRect: createRect(0, 0, 0, 0), clientRects: [] });
+}
+
 function restoreRangeGeometry(): void {
 	if (ORIGINAL_GET_CLIENT_RECTS) {
 		Object.defineProperty(
@@ -86,16 +99,11 @@ function resetDocumentBody(): void {
 	document.body.replaceChildren();
 }
 
-function selectText(content: string, start: number, end: number): Range {
-	const paragraph = document.createElement("p");
-	const textNode = document.createTextNode(content);
-	paragraph.append(textNode);
-	document.body.append(paragraph);
-
-	const range = document.createRange();
-	range.setStart(textNode, start);
-	range.setEnd(textNode, end);
-
+function selectRange(
+	start: readonly [Node, number],
+	end: readonly [Node, number],
+): Range {
+	const range = rangeOf(start, end);
 	const selection = globalThis.getSelection();
 	if (!selection) {
 		throw new Error("Selection API is unavailable in jsdom.");
@@ -106,17 +114,51 @@ function selectText(content: string, start: number, end: number): Range {
 	return range;
 }
 
+function selectText(content: string, start: number, end: number): Range {
+	const paragraph = document.createElement("p");
+	const textNode = document.createTextNode(content);
+	paragraph.append(textNode);
+	document.body.append(paragraph);
+
+	return selectRange([textNode, start], [textNode, end]);
+}
+
+function mountGlossParagraph(): {
+	readonly after: Text;
+	readonly before: Text;
+	readonly glossText: Text;
+} {
+	const gloss = createGlossSpan(document, {
+		gloss: "跑",
+		lemma: "run",
+		word: "run",
+	});
+	const glossText = gloss.firstChild;
+	if (!(glossText instanceof Text)) {
+		throw new Error("A gloss span starts with its text node.");
+	}
+	const before = document.createTextNode("We ");
+	const after = document.createTextNode(" daily.");
+	const paragraph = document.createElement("p");
+	paragraph.append(before, gloss, after);
+	document.body.append(paragraph);
+
+	return { after: after, before: before, glossText: glossText };
+}
+
 beforeEach(() => {
 	resetDocumentBody();
 	globalThis.getSelection()?.removeAllRanges();
 	restoreRangeGeometry();
 	vi.restoreAllMocks();
+	stubCheckVisibility((): boolean => true);
 });
 
 afterEach(() => {
 	globalThis.getSelection()?.removeAllRanges();
 	resetDocumentBody();
 	restoreRangeGeometry();
+	restoreCheckVisibility();
 	vi.restoreAllMocks();
 });
 
@@ -232,11 +274,14 @@ describe("readActiveSelection", () => {
 		expect(readActiveSelection(globalThis.window)).toBeNull();
 	});
 
+	it("returns null for selections of only non-HTML whitespace", () => {
+		selectText("a\u00a0\u2003b", 1, 3);
+
+		expect(readActiveSelection(globalThis.window)).toBeNull();
+	});
+
 	it("returns a trimmed snapshot and clones the active range", () => {
-		mockRangeGeometry({
-			boundingRect: createRect(0, 0, 0, 0),
-			clientRects: [],
-		});
+		mockEmptyRangeGeometry();
 		const range = selectText("  agenda  ", 0, 10);
 
 		const snapshot = readActiveSelection(globalThis.window, { x: 21, y: 34 });
@@ -250,5 +295,54 @@ describe("readActiveSelection", () => {
 			x: 21,
 			y: 34,
 		});
+	});
+});
+
+describe("readActiveSelection across elements", () => {
+	beforeEach(mockEmptyRangeGeometry);
+
+	it("keeps a word whole across an element displayed inline", () => {
+		const root = mountMarkup(
+			'<div>hel<div style="display: inline">lo</div> there</div>',
+		);
+		selectRange([textAt(root, "div"), 0], [textAt(root, "[style]"), 2]);
+
+		expect(readActiveSelection(globalThis.window)?.text).toBe("hello");
+	});
+
+	it("keeps a word whole across a hidden element", () => {
+		const root = mountMarkup("<p>hel<span hidden>ignored</span>lo</p>");
+		selectRange([textAt(root, "p"), 0], [textAt(root, "p", 2), 2]);
+
+		expect(readActiveSelection(globalThis.window)?.text).toBe("hello");
+	});
+});
+
+describe("readActiveSelection around glosses", () => {
+	beforeEach(mockEmptyRangeGeometry);
+
+	it("returns null when only gloss text is selected", () => {
+		const { glossText } = mountGlossParagraph();
+		selectRange([glossText, 4], [glossText, 6]);
+
+		expect(readActiveSelection(globalThis.window)).toBeNull();
+	});
+
+	it("keeps only the word of a gloss the selection crosses", () => {
+		const { after, before } = mountGlossParagraph();
+		selectRange([before, 0], [after, 6]);
+
+		expect(readActiveSelection(globalThis.window)?.text).toBe("We run daily");
+	});
+
+	it("reads the sentence around a word in a gloss without the gloss", () => {
+		const { glossText } = mountGlossParagraph();
+		selectRange([glossText, 0], [glossText, 3]);
+		const selection = readActiveSelection(globalThis.window);
+		if (selection === null) {
+			throw new Error("Expected a selection.");
+		}
+
+		expect(readSelectionContext(selection)).toBe("We run daily.");
 	});
 });

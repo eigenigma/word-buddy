@@ -1,13 +1,11 @@
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 
-import { readRenderedText } from "@/shared/dom/renderedText";
 import {
-	findEnclosingBlock,
 	readActiveSelection,
+	readSelectionContext,
 	type ViewportPoint,
 } from "@/shared/dom/selection";
-import { extractContainingSentence } from "@/shared/dom/sentence";
 import { toError } from "@/shared/utils/errors";
 import type { PopupUi, PopupUiOptions, SelectionPopupHost } from "./popupHost";
 import { createSelectionPopup } from "./popupHost";
@@ -21,24 +19,13 @@ import type { SelectionBubbleUiState, SelectionPopupState } from "./state";
 import { addError, addInFlight, popupState, resolveInFlight } from "./state";
 import "virtual:uno.css";
 
-function getSelectionContext(currentUiState: SelectionBubbleUiState): string {
-	const { selection } = currentUiState;
-	const contextBlock = findEnclosingBlock(
-		selection.range.commonAncestorContainer,
-	);
-	return extractContainingSentence(
-		readRenderedText(contextBlock),
-		selection.text,
-	);
-}
-
 async function openSelectionPopup(
 	popupHost: SelectionPopupHost,
 	currentUiState: SelectionBubbleUiState,
 ): Promise<void> {
 	try {
 		const state = await resolveSelectionPopupState({
-			context: getSelectionContext(currentUiState),
+			context: readSelectionContext(currentUiState.selection),
 			original: currentUiState.selection.text,
 		});
 

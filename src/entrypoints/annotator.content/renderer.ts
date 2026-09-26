@@ -1,9 +1,17 @@
 import { createGlossSpan } from "@/shared/dom/injectedMarker";
 import type { AhoCorasickMatch } from "@/shared/matching/ahoCorasick";
 
+// Replacing an attached text node queues exactly one childList record on its
+// parent: the text node removed, the new nodes added in order. Only this
+// replacement ever adds those new nodes, so they identify its record.
+export interface TextReplacement {
+	readonly added: readonly Node[];
+	readonly removed: Text;
+}
+
 export interface RendererInput {
-	readonly block: Element;
 	readonly matchesByNode: ReadonlyMap<Text, readonly AhoCorasickMatch[]>;
+	readonly onReplace: (replacement: TextReplacement) => void;
 	readonly translations: Readonly<Record<string, string>>;
 }
 
@@ -18,11 +26,11 @@ function sortMatches(
 	);
 }
 
-function renderTextNode(
+function buildAnnotatedFragment(
 	textNode: Text,
 	matches: readonly AhoCorasickMatch[],
 	translations: Readonly<Record<string, string>>,
-): void {
+): DocumentFragment | null {
 	const sourceText = textNode.data;
 	const documentRef = textNode.ownerDocument;
 	const fragment = documentRef.createDocumentFragment();
@@ -57,22 +65,35 @@ function renderTextNode(
 	}
 
 	if (!rendered) {
-		return;
+		return null;
 	}
 
 	if (cursor < sourceText.length) {
 		fragment.append(sourceText.slice(cursor));
 	}
 
-	textNode.replaceWith(fragment);
+	return fragment;
 }
 
 export function renderAnnotations(input: RendererInput): void {
 	for (const [textNode, matches] of input.matchesByNode) {
-		if (matches.length === 0) {
+		if (textNode.parentNode === null) {
 			continue;
 		}
 
-		renderTextNode(textNode, matches, input.translations);
+		const fragment = buildAnnotatedFragment(
+			textNode,
+			matches,
+			input.translations,
+		);
+		if (fragment === null) {
+			continue;
+		}
+
+		input.onReplace({
+			added: Array.from(fragment.childNodes),
+			removed: textNode,
+		});
+		textNode.replaceWith(fragment);
 	}
 }

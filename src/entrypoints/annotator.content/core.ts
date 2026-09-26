@@ -1,22 +1,25 @@
-import type { ContentScriptContext } from "wxt/utils/content-script-context";
-
-import type { LemmaExpansions } from "@/shared/dictionary/types";
+import type {
+	TranslateParagraphInput,
+	TranslationMap,
+} from "@/shared/llm/types";
 import {
 	type AhoCorasickMatch,
 	type AhoCorasickMatcher,
-	createAhoCorasickMatcher,
 	isWholeWordMatch,
-	type PatternRef,
 } from "@/shared/matching/ahoCorasick";
-import { requestExpandLemmas } from "@/shared/runtime/dictionaryClient";
-import { requestTranslateParagraph } from "@/shared/runtime/llmClient";
-import { requestWordbookList } from "@/shared/runtime/wordbookClient";
 import { collectBlockTextNodes, readBlockSourceText } from "./domWalker";
-import { renderAnnotations } from "./renderer";
+import { renderAnnotations, type TextReplacement } from "./renderer";
 import { BLOCK_SELECTOR, isInSkippedSubtree } from "./skipPredicate";
 
-export interface MatcherState {
-	matcher: AhoCorasickMatcher | null;
+export type TranslateBlock = (
+	input: TranslateParagraphInput,
+) => Promise<TranslationMap>;
+
+export interface AnnotateBlockDependencies {
+	// False once the block, the matcher or the runtime has moved on.
+	readonly isCurrent: () => boolean;
+	readonly onReplace: (replacement: TextReplacement) => void;
+	readonly translate: TranslateBlock;
 }
 
 interface BlockMatchCollection {
@@ -34,32 +37,6 @@ export function findCandidateBlocks(
 	return Array.from(documentRef.querySelectorAll(BLOCK_SELECTOR)).filter(
 		isRelevantBlock,
 	);
-}
-
-function buildPatternRefs(
-	lemmas: readonly string[],
-	expansions: LemmaExpansions,
-): readonly PatternRef[] {
-	const patterns: PatternRef[] = [];
-	const dedupeKeys = new Set<string>();
-
-	for (const lemma of lemmas) {
-		const surfaces = expansions[lemma] ?? [lemma];
-		for (const surface of surfaces) {
-			const dedupeKey = `${lemma}\u001f${surface.toLowerCase()}`;
-			if (dedupeKeys.has(dedupeKey)) {
-				continue;
-			}
-
-			dedupeKeys.add(dedupeKey);
-			patterns.push({
-				lemma: lemma,
-				surface: surface,
-			});
-		}
-	}
-
-	return patterns;
 }
 
 function collectBlockMatches(
@@ -105,65 +82,31 @@ function keepAnnotatableNodes(
 	);
 }
 
-export async function buildMatcher(): Promise<AhoCorasickMatcher | null> {
-	const { entries } = await requestWordbookList();
-	if (entries.length === 0) {
-		return null;
-	}
-
-	const lemmas = entries.map((entry) => entry.lemma);
-	const { expansions } = await requestExpandLemmas(lemmas);
-	const patterns = buildPatternRefs(lemmas, expansions);
-	if (patterns.length === 0) {
-		return null;
-	}
-
-	return createAhoCorasickMatcher(patterns);
-}
-
-export async function rebuildMatcherState(state: MatcherState): Promise<void> {
-	state.matcher = await buildMatcher();
-}
-
 export async function annotateBlock(
-	ctx: ContentScriptContext,
 	block: HTMLElement,
-	state: MatcherState,
-	processedBlocks: WeakSet<HTMLElement>,
-	onWarn: (message: string, error: unknown) => void,
+	matcher: AhoCorasickMatcher | null,
+	dependencies: AnnotateBlockDependencies,
 ): Promise<void> {
-	const matcher = state.matcher;
 	if (matcher === null) {
 		return;
 	}
 
-	try {
-		const { lemmas, matchesByNode } = collectBlockMatches(block, matcher);
-		if (matchesByNode.size === 0) {
-			return;
-		}
-
-		const response = await requestTranslateParagraph({
-			paragraph: readBlockSourceText(block),
-			words: lemmas,
-		});
-		if (response.error || response.translations === null) {
-			throw new Error(response.error ?? "Paragraph translation failed.");
-		}
-
-		if (ctx.isInvalid) {
-			return;
-		}
-
-		renderAnnotations({
-			block: block,
-			matchesByNode: keepAnnotatableNodes(matchesByNode),
-			translations: response.translations,
-		});
-		processedBlocks.add(block);
-		block.dataset["wbScanned"] = "1";
-	} catch (error: unknown) {
-		block.dataset["wbScanned"] = "error";
-		onWarn("annotation failed:", error);
+	const { lemmas, matchesByNode } = collectBlockMatches(block, matcher);
+	if (matchesByNode.size === 0) {
+		return;
 	}
+
+	const translations = await dependencies.translate({
+		paragraph: readBlockSourceText(block),
+		words: lemmas,
+	});
+	if (!dependencies.isCurrent()) {
+		return;
+	}
+
+	renderAnnotations({
+		matchesByNode: keepAnnotatableNodes(matchesByNode),
+		onReplace: dependencies.onReplace,
+		translations: translations,
+	});
 }

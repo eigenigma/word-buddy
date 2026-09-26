@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 import { assert, describe, expect, it } from "vitest";
-import { INJECTED_ATTRIBUTE } from "@/shared/dom/injectedMarker";
+
+import {
+	INJECTED_ATTRIBUTE,
+	INJECTED_WORD_ATTRIBUTE,
+} from "@/shared/dom/injectedMarker";
 import type { AhoCorasickMatch } from "@/shared/matching/ahoCorasick";
-import { renderAnnotations } from "./renderer";
+import { renderAnnotations, type TextReplacement } from "./renderer";
 
 const MATCH: AhoCorasickMatch = {
 	end: 4,
@@ -22,15 +26,18 @@ function createBlockWithText(text: string): {
 }
 
 function renderWord(
-	block: Element,
 	textNode: Text,
 	translation: string | undefined,
-): void {
+): readonly TextReplacement[] {
+	const replacements: TextReplacement[] = [];
 	renderAnnotations({
-		block: block,
 		matchesByNode: new Map([[textNode, [MATCH]]]),
+		onReplace: (replacement: TextReplacement): void => {
+			replacements.push(replacement);
+		},
 		translations: translation === undefined ? {} : { word: translation },
 	});
+	return replacements;
 }
 
 function countInjectedWrappers(block: Element): number {
@@ -43,11 +50,11 @@ function countInjectedWrappers(block: Element): number {
 
 describe("renderAnnotations", () => {
 	it("wraps annotated text and stores metadata when a translation exists", () => {
-		const { block, textNode } = createBlockWithText("word");
+		const { block, textNode } = createBlockWithText("Word");
 
-		renderWord(block, textNode, "释义");
+		renderWord(textNode, "释义");
 
-		expect(block.textContent).toBe("word(释义)");
+		expect(block.textContent).toBe("Word(释义)");
 		expect(block.childNodes).toHaveLength(1);
 		expect(countInjectedWrappers(block)).toBe(1);
 
@@ -55,17 +62,56 @@ describe("renderAnnotations", () => {
 		assert.instanceOf(wrapperNode, HTMLSpanElement);
 
 		expect(wrapperNode.dataset["wbLemma"]).toBe("word");
-		expect(wrapperNode.textContent).toBe("word(释义)");
+		expect(wrapperNode.getAttribute(INJECTED_WORD_ATTRIBUTE)).toBe("Word");
+		expect(wrapperNode.textContent).toBe("Word(释义)");
 		expect(wrapperNode.childNodes).toHaveLength(1);
 	});
 
 	it("keeps the original text when the translation is missing", () => {
 		const { block, textNode } = createBlockWithText("word");
 
-		renderWord(block, textNode, undefined);
+		const replacements = renderWord(textNode, undefined);
 
 		expect(block.textContent).toBe("word");
-		expect(block.childNodes).toHaveLength(1);
+		expect(block.firstChild).toBe(textNode);
 		expect(countInjectedWrappers(block)).toBe(0);
+		expect(replacements).toStrictEqual([]);
+	});
+
+	it("reports each replacement before making it", () => {
+		const { block, textNode } = createBlockWithText("word here");
+		const reports: {
+			readonly parentWhenReported: ParentNode | null;
+			readonly replacement: TextReplacement;
+		}[] = [];
+
+		renderAnnotations({
+			matchesByNode: new Map([[textNode, [MATCH]]]),
+			onReplace: (replacement: TextReplacement): void => {
+				reports.push({
+					parentWhenReported: replacement.removed.parentNode,
+					replacement: replacement,
+				});
+			},
+			translations: { word: "释义" },
+		});
+
+		expect(reports).toStrictEqual([
+			{
+				parentWhenReported: block,
+				replacement: { added: Array.from(block.childNodes), removed: textNode },
+			},
+		]);
+		expect(block.childNodes).toHaveLength(2);
+	});
+
+	it("leaves a text node the page has already detached", () => {
+		const { block, textNode } = createBlockWithText("word");
+		textNode.remove();
+
+		const replacements = renderWord(textNode, "释义");
+
+		expect(block.childNodes).toHaveLength(0);
+		expect(replacements).toStrictEqual([]);
 	});
 });

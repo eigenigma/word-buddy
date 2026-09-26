@@ -9,6 +9,15 @@ variables:
   # mise.toml carries settings, which mise refuses to load from an untrusted
   # file.
   MISE_TRUSTED_CONFIG_PATHS: "$CI_PROJECT_DIR"
+  # Sized from measured usage: memory request = limit = 1.45 x the job's peak
+  # process-tree RSS, rounded up to a whole Gi. The runner fails, not clamps, a
+  # memory request above 8Gi. No CPU limit (fleet policy): requests only
+  # reserve capacity, and jobs burst into idle cores. The V8 heap follows each
+  # job's memory limit, so NODE_OPTIONS needs no per-job override.
+  KUBERNETES_CPU_REQUEST: "500m"
+  KUBERNETES_MEMORY_REQUEST: "1Gi"
+  KUBERNETES_MEMORY_LIMIT: "$KUBERNETES_MEMORY_REQUEST"
+  NODE_OPTIONS: "--max-old-space-size-percentage=75"
 
 stages:
   - quality
@@ -43,7 +52,7 @@ default:
     # regenerates the shims, which are not cached.
     - mise install
     - export PATH="$MISE_DATA_DIR/shims:$PATH"
-    - node --version
+    - node -p '`node ${process.version}, V8 heap limit ${Math.round(v8.getHeapStatistics().heap_size_limit / 2 ** 20)} MiB`'
     - bun --version
     - bun install --frozen-lockfile
 
@@ -68,6 +77,9 @@ lint:
 # adding a serial stage.
 dictionary:
   stage: quality
+  variables:
+    # build:dict peaks near 1.5GiB.
+    KUBERNETES_MEMORY_REQUEST: "3Gi"
   script:
     - bun run fetch:dict
     - bun run build:dict
@@ -78,11 +90,18 @@ dictionary:
 
 test:
   stage: test
+  variables:
+    # Vitest defaults to one worker per core but one, and without a CPU limit
+    # that counts the node's cores, so the peak would follow whichever node the
+    # pod lands on. Pinned, it no longer grows with the suite: the main process
+    # plus the two heaviest test files peak near 0.7GiB.
+    TEST_MAX_WORKERS: "2"
+    KUBERNETES_CPU_REQUEST: "$TEST_MAX_WORKERS"
   # queryService.test.ts loads the generated dictionary from public/data/.
   dependencies:
     - dictionary
   script:
-    - bun run test
+    - bun run test --maxWorkers="$TEST_MAX_WORKERS"
 
 build-firefox:
   stage: build

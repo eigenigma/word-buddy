@@ -157,6 +157,6 @@ export async function annotateBlock(
 		block.dataset["wbScanned"] = "1";
 	} catch (error: unknown) {
 		block.dataset["wbScanned"] = "error";
-		onWarn("word-buddy annotator:", error);
+		onWarn("annotation failed:", error);
 	}
 }

@@ -23,9 +23,6 @@ async function bootAnnotator(
 
 	const { settings } = await requestSettingsGet();
 	if (!isSettingsComplete(settings)) {
-		logger.info(
-			"word-buddy annotator: skipped because LLM settings are incomplete.",
-		);
 		return;
 	}
 
@@ -35,17 +32,6 @@ async function bootAnnotator(
 	};
 	const currentHost = globalThis.location.hostname;
 	if (await isCurrentHostBlocked(currentHost)) {
-		const removeListener = registerAnnotatorListener({
-			disposeRuntime: disposeAnnotatorRuntime,
-			host: currentHost,
-			isCurrentHostBlocked: isCurrentHostBlocked,
-			logger: logger,
-			runtime: null,
-		});
-		logger.info("word-buddy annotator: paused on this site.");
-		ctx.onInvalidated((): void => {
-			removeListener();
-		});
 		return;
 	}
 
@@ -84,7 +70,7 @@ export default defineContentScript({
 		try {
 			await bootAnnotator(ctx, logger);
 		} catch (error: unknown) {
-			logger.warn("word-buddy annotator boot failed:", error);
+			logger.warn("boot failed:", error);
 		}
 	},
 });

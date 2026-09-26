@@ -10,7 +10,7 @@ export interface RegisterAnnotatorListenerDependencies {
 	readonly host: string;
 	readonly isCurrentHostBlocked: (host: string) => Promise<boolean>;
 	readonly logger: AnnotatorLogger;
-	readonly runtime: AnnotatorRuntime | null;
+	readonly runtime: AnnotatorRuntime;
 }
 
 export function registerAnnotatorListener(
@@ -20,14 +20,11 @@ export function registerAnnotatorListener(
 		dependencies;
 	const onMessage = (message: unknown): false => {
 		if (AnnotatorInvalidateRequestSchema.safeParse(message).success) {
-			if (runtime !== null) {
-				runtime.invalidationController
-					.onInvalidate()
-					.catch((error: unknown): void => {
-						logger.warn("word-buddy annotator invalidation failed:", error);
-					});
-			}
-
+			runtime.invalidationController
+				.onInvalidate()
+				.catch((error: unknown): void => {
+					logger.warn("invalidation failed:", error);
+				});
 			return false;
 		}
 
@@ -37,27 +34,13 @@ export function registerAnnotatorListener(
 
 		isCurrentHostBlocked(host)
 			.then((blocked): void => {
-				if (runtime === null) {
-					if (!blocked) {
-						logger.info(
-							"word-buddy annotator: site resumed; reload to re-enable annotations.",
-						);
-					}
-					return;
+				if (blocked) {
+					disposeRuntime(runtime);
+					removeListener();
 				}
-
-				if (!blocked) {
-					return;
-				}
-
-				disposeRuntime(runtime);
-				removeListener();
-				logger.info(
-					"word-buddy annotator: paused on this site; reload to resume.",
-				);
 			})
 			.catch((error: unknown): void => {
-				logger.warn("word-buddy annotator site-control check failed:", error);
+				logger.warn("site-control check failed:", error);
 			});
 		return false;
 	};

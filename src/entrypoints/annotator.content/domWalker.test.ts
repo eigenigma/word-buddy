@@ -113,6 +113,28 @@ describe("collectBlockTextNodes", () => {
 });
 
 describe("collectBlockTextNodes ownership", () => {
+	it.each(["true", "", "plaintext-only", "TRUE"])(
+		'skips a contenteditable="%s" subtree',
+		(value: string) => {
+			const editable = createElementWithText("span", "editable");
+			editable.setAttribute("contenteditable", value);
+			const block = createBlock("p", "before ", editable, " after");
+
+			expect(collectTexts(block)).toStrictEqual(["before ", " after"]);
+		},
+	);
+
+	it("skips a non-editable island inside an editing host", () => {
+		const island = createElementWithText("span", "island");
+		island.setAttribute("contenteditable", "false");
+		const host = document.createElement("span");
+		host.setAttribute("contenteditable", "true");
+		host.append(island);
+		const block = createBlock("p", "before ", host);
+
+		expect(collectTexts(block)).toStrictEqual(["before "]);
+	});
+
 	it("leaves the text of a nested candidate block to that block", () => {
 		const nested = createElementWithText("p", "nested");
 		const block = createBlock("li", "intro ", nested, " tail");

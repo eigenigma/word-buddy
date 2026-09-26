@@ -28,6 +28,7 @@ function findCandidateIds(): readonly string[] {
 }
 
 afterEach(() => {
+	document.designMode = "off";
 	document.body.replaceChildren();
 });
 
@@ -65,6 +66,9 @@ describe("findCandidateBlocks", () => {
 			wrapIn("div", wrapIn("div", createParagraph("in-editor")), {
 				contenteditable: "true",
 			}),
+			wrapIn("div", createParagraph("in-plaintext-editor"), {
+				contenteditable: "plaintext-only",
+			}),
 			wrapIn("pre", wrapIn("span", createParagraph("in-pre"))),
 			wrapIn("span", wrapIn("span", createParagraph("in-gloss")), {
 				[INJECTED_ATTRIBUTE]: "1",
@@ -81,5 +85,12 @@ describe("findCandidateBlocks", () => {
 		document.body.append(marked, createParagraph("kept"));
 
 		expect(findCandidateIds()).toStrictEqual(["kept"]);
+	});
+
+	it("drops every block while the document is in design mode", () => {
+		document.body.append(createParagraph("editable"));
+		document.designMode = "on";
+
+		expect(findCandidateIds()).toStrictEqual([]);
 	});
 });

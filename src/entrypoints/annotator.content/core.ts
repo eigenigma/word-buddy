@@ -92,6 +92,19 @@ function collectBlockMatches(
 	};
 }
 
+// The page may have made a text node editable while its translation was
+// pending.
+function keepAnnotatableNodes(
+	matchesByNode: ReadonlyMap<Text, readonly AhoCorasickMatch[]>,
+): ReadonlyMap<Text, readonly AhoCorasickMatch[]> {
+	return new Map(
+		Array.from(matchesByNode).filter(([textNode]) => {
+			const parent = textNode.parentElement;
+			return parent !== null && !isInSkippedSubtree(parent);
+		}),
+	);
+}
+
 export async function buildMatcher(): Promise<AhoCorasickMatcher | null> {
 	const { entries } = await requestWordbookList();
 	if (entries.length === 0) {
@@ -144,7 +157,7 @@ export async function annotateBlock(
 
 		renderAnnotations({
 			block: block,
-			matchesByNode: matchesByNode,
+			matchesByNode: keepAnnotatableNodes(matchesByNode),
 			translations: response.translations,
 		});
 		processedBlocks.add(block);

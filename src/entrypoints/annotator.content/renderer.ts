@@ -1,6 +1,5 @@
+import { createGlossSpan } from "@/shared/dom/injectedMarker";
 import type { AhoCorasickMatch } from "@/shared/matching/ahoCorasick";
-
-import { INJECTED_ATTRIBUTE } from "./injectedMarker";
 
 export interface RendererInput {
 	readonly block: Element;
@@ -17,23 +16,6 @@ function sortMatches(
 			right.end - left.end ||
 			left.lemma.localeCompare(right.lemma),
 	);
-}
-
-function createWrapperText(word: string, gloss: string): string {
-	return `${word}(${gloss})`;
-}
-
-function createWrapperSpan(
-	documentRef: Document,
-	lemma: string,
-	word: string,
-	gloss: string,
-): HTMLSpanElement {
-	const wrapperSpan = documentRef.createElement("span");
-	wrapperSpan.setAttribute(INJECTED_ATTRIBUTE, "1");
-	wrapperSpan.dataset["wbLemma"] = lemma;
-	wrapperSpan.textContent = createWrapperText(word, gloss);
-	return wrapperSpan;
 }
 
 function renderTextNode(
@@ -62,7 +44,11 @@ function renderTextNode(
 			fragment.append(word);
 		} else {
 			fragment.append(
-				createWrapperSpan(documentRef, match.lemma, word, translation),
+				createGlossSpan(documentRef, {
+					gloss: translation,
+					lemma: match.lemma,
+					word: word,
+				}),
 			);
 			rendered = true;
 		}

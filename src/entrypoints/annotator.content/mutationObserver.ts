@@ -1,3 +1,5 @@
+import { resolveElement } from "@/shared/dom/element";
+
 import { BLOCK_SELECTOR } from "./skipPredicate";
 
 const MUTATION_DEBOUNCE_MS = 250;
@@ -37,19 +39,11 @@ function collectBlocksFromElement(
 	}
 }
 
-function getElementForNode(node: Node): Element | null {
-	if (node instanceof Element) {
-		return node;
-	}
-
-	return node.parentElement;
-}
-
 function collectCandidateBlocks(nodes: Iterable<Node>): Set<HTMLElement> {
 	const blocks = new Set<HTMLElement>();
 
 	for (const node of nodes) {
-		const element = getElementForNode(node);
+		const element = resolveElement(node);
 		if (!element) {
 			continue;
 		}

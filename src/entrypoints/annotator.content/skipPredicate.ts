@@ -1,4 +1,4 @@
-import { INJECTED_SELECTOR } from "./injectedMarker";
+import { INJECTED_SELECTOR } from "@/shared/dom/injectedMarker";
 
 export const BLOCK_SELECTOR =
 	"p, li, td, th, blockquote, article section, h1, h2, h3, h4, h5, h6, dt, dd, figcaption, summary";

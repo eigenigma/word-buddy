@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { assert, describe, expect, it } from "vitest";
-
+import { INJECTED_ATTRIBUTE } from "@/shared/dom/injectedMarker";
 import type { AhoCorasickMatch } from "@/shared/matching/ahoCorasick";
-import { INJECTED_ATTRIBUTE } from "./injectedMarker";
 import { renderAnnotations } from "./renderer";
 
 const MATCH: AhoCorasickMatch = {

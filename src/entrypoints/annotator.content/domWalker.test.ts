@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-
+import { INJECTED_ATTRIBUTE } from "@/shared/dom/injectedMarker";
 import { collectBlockTextNodes } from "./domWalker";
-import { INJECTED_ATTRIBUTE } from "./injectedMarker";
 
 function createBlock(...children: readonly (Node | string)[]): HTMLElement {
 	const block = document.createElement("p");

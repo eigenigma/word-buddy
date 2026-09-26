@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-
+import { INJECTED_ATTRIBUTE } from "@/shared/dom/injectedMarker";
 import { findCandidateBlocks } from "./core";
-import { INJECTED_ATTRIBUTE } from "./injectedMarker";
 
 function createParagraph(id: string): HTMLParagraphElement {
 	const paragraph = document.createElement("p");

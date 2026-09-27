@@ -6,7 +6,7 @@ import {
 	readSelectionContext,
 	type ViewportPoint,
 } from "@/shared/dom/selection";
-import { toError } from "@/shared/utils/errors";
+import { reportGlobalError, toError } from "@/shared/utils/errors";
 import type { PopupUi, PopupUiOptions, SelectionPopupHost } from "./popupHost";
 import { createSelectionPopup } from "./popupHost";
 import {
@@ -15,6 +15,7 @@ import {
 	hasActiveCardPopup,
 	resolveSelectionPopupState,
 } from "./resolveSelection";
+import { createTimerScheduler, type TimerScheduler } from "./scheduler";
 import type { SelectionBubbleUiState, SelectionPopupState } from "./state";
 import { addError, addInFlight, popupState, resolveInFlight } from "./state";
 import "virtual:uno.css";
@@ -51,7 +52,7 @@ async function openSelectionPopup(
 }
 
 async function addSelectionToWordbook(
-	ctx: ContentScriptContext,
+	scheduler: TimerScheduler,
 	popupHost: SelectionPopupHost,
 	currentPopupState: SelectionPopupState,
 ): Promise<void> {
@@ -75,7 +76,7 @@ async function addSelectionToWordbook(
 			kind: "card",
 			popup: result.popupState,
 		};
-		ctx.setTimeout((): void => {
+		scheduler.schedule((): void => {
 			if (hasActiveCardPopup(popupState.value, currentPopupState.lemma)) {
 				popupHost.hide();
 			}
@@ -89,7 +90,7 @@ async function addSelectionToWordbook(
 }
 
 function scheduleSelectionBubbleOpen(
-	ctx: ContentScriptContext,
+	scheduler: TimerScheduler,
 	popupHost: SelectionPopupHost,
 ): void {
 	const currentUiState = popupState.value;
@@ -98,13 +99,17 @@ function scheduleSelectionBubbleOpen(
 	}
 
 	resolveInFlight.value = true;
-	ctx.setTimeout(async (): Promise<void> => {
-		await openSelectionPopup(popupHost, currentUiState);
+	scheduler.schedule((): void => {
+		openSelectionPopup(popupHost, currentUiState).catch(
+			(error: unknown): void => {
+				reportGlobalError("word-buddy: selection lookup failed", error);
+			},
+		);
 	}, 0);
 }
 
 function scheduleWordbookAdd(
-	ctx: ContentScriptContext,
+	scheduler: TimerScheduler,
 	popupHost: SelectionPopupHost,
 ): void {
 	const currentPopupState = getCurrentPopupState(popupState.value);
@@ -114,8 +119,12 @@ function scheduleWordbookAdd(
 
 	addInFlight.value = true;
 	addError.value = null;
-	ctx.setTimeout(async (): Promise<void> => {
-		await addSelectionToWordbook(ctx, popupHost, currentPopupState);
+	scheduler.schedule((): void => {
+		addSelectionToWordbook(scheduler, popupHost, currentPopupState).catch(
+			(error: unknown): void => {
+				reportGlobalError("word-buddy: wordbook add failed", error);
+			},
+		);
 	}, 0);
 }
 
@@ -147,6 +156,7 @@ function handleSelectionMouseup(
 
 function registerSelectionListener(
 	ctx: ContentScriptContext,
+	scheduler: TimerScheduler,
 	popupHost: SelectionPopupHost,
 ): void {
 	ctx.addEventListener(document, "mouseup", (event: MouseEvent): void => {
@@ -155,7 +165,7 @@ function registerSelectionListener(
 		}
 
 		const fallbackPoint = { x: event.clientX, y: event.clientY };
-		ctx.setTimeout((): void => {
+		scheduler.schedule((): void => {
 			try {
 				handleSelectionMouseup(popupHost, fallbackPoint);
 			} catch (error: unknown) {
@@ -170,15 +180,16 @@ export default defineContentScript({
 	matches: ["<all_urls>"],
 	cssInjectionMode: "ui",
 	main: async (ctx: ContentScriptContext): Promise<void> => {
+		const scheduler = createTimerScheduler(ctx, globalThis.window);
 		let popupHost: SelectionPopupHost | null = null;
 		const onAdd = (): void => {
 			if (popupHost) {
-				scheduleWordbookAdd(ctx, popupHost);
+				scheduleWordbookAdd(scheduler, popupHost);
 			}
 		};
 		const onOpen = (): void => {
 			if (popupHost) {
-				scheduleSelectionBubbleOpen(ctx, popupHost);
+				scheduleSelectionBubbleOpen(scheduler, popupHost);
 			}
 		};
 
@@ -189,6 +200,6 @@ export default defineContentScript({
 			onOpen: onOpen,
 		});
 		registerDismissListeners(ctx, popupHost);
-		registerSelectionListener(ctx, popupHost);
+		registerSelectionListener(ctx, scheduler, popupHost);
 	},
 });

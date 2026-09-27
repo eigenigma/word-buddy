@@ -4,13 +4,12 @@ import {
 	mkdir,
 	mkdtempDisposable,
 	readdir,
-	readFile,
+	rename,
+	rm,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-
-import { z } from "zod";
 
 import { createNodeSourceFileCopier } from "./dict/nodeSourceFileIo";
 import { copyDictionarySources } from "./dict/sourceFiles";
@@ -19,13 +18,11 @@ import { REPOSITORY_ROOT_URL } from "./repositoryRoot";
 
 const REPOSITORY_ROOT = fileURLToPath(REPOSITORY_ROOT_URL);
 const OUTPUT_DIRECTORY = ".output";
-
-const packageManifestSchema = z.object({
-	name: z.string().min(1),
-	version: z.string().min(1),
-});
-
-type PackageManifest = z.infer<typeof packageManifestSchema>;
+// submit:firefox in package.json reads these two paths literally.
+const RELEASE_PATH = join(OUTPUT_DIRECTORY, "release");
+const RELEASE_DIRECTORY = join(REPOSITORY_ROOT, RELEASE_PATH);
+const EXTENSION_ZIP_NAME = "extension.zip";
+const SOURCES_ZIP_NAME = "sources.zip";
 
 function run(cwd: string, command: string, args: readonly string[]): void {
 	execFileSync(command, args, { cwd: cwd, stdio: "inherit" });
@@ -41,11 +38,6 @@ function assertCleanWorkingTree(): void {
 			`Packaging builds from HEAD, so the working tree must be clean:\n${status}`,
 		);
 	}
-}
-
-async function readPackageManifest(): Promise<PackageManifest> {
-	const text = await readFile(join(REPOSITORY_ROOT, "package.json"), "utf8");
-	return packageManifestSchema.parse(JSON.parse(text));
 }
 
 async function buildFromSources(
@@ -66,7 +58,7 @@ async function buildFromSources(
 }
 
 // WXT names the XPI, and a fresh build writes no other zip.
-async function findExtensionZipName(outputDirectory: string): Promise<string> {
+async function findExtensionZip(outputDirectory: string): Promise<string> {
 	const zipNames = (await readdir(outputDirectory)).filter(
 		(fileName: string): boolean => fileName.endsWith(".zip"),
 	);
@@ -77,18 +69,18 @@ async function findExtensionZipName(outputDirectory: string): Promise<string> {
 		);
 	}
 
-	return zipName;
+	return join(outputDirectory, zipName);
 }
 
 async function main(): Promise<void> {
+	await rm(RELEASE_DIRECTORY, { force: true, recursive: true });
 	assertCleanWorkingTree();
 
-	const { name, version } = await readPackageManifest();
-	const outputDirectory = join(REPOSITORY_ROOT, OUTPUT_DIRECTORY);
-	const sourcesZipName = `${name}-${version}-sources.zip`;
-	const sourcesZipPath = join(outputDirectory, sourcesZipName);
-
-	await mkdir(outputDirectory, { recursive: true });
+	// The pair is assembled beside release/ and lands there in one rename, so a
+	// failed run leaves release/ absent rather than half-filled.
+	await mkdir(dirname(RELEASE_DIRECTORY), { recursive: true });
+	await using staging = await mkdtempDisposable(`${RELEASE_DIRECTORY}-`);
+	const sourcesZipPath = join(staging.path, SOURCES_ZIP_NAME);
 	run(REPOSITORY_ROOT, "git", [
 		"archive",
 		"--format=zip",
@@ -97,18 +89,17 @@ async function main(): Promise<void> {
 	]);
 
 	await using buildRoot = await mkdtempDisposable(
-		join(tmpdir(), `${name}-package-`),
+		join(tmpdir(), "word-buddy-package-"),
 	);
 	await buildFromSources(sourcesZipPath, buildRoot.path);
-	const buildOutputDirectory = join(buildRoot.path, OUTPUT_DIRECTORY);
-	const extensionZipName = await findExtensionZipName(buildOutputDirectory);
-	await copyFile(
-		join(buildOutputDirectory, extensionZipName),
-		join(outputDirectory, extensionZipName),
+	const builtExtensionZip = await findExtensionZip(
+		join(buildRoot.path, OUTPUT_DIRECTORY),
 	);
+	await copyFile(builtExtensionZip, join(staging.path, EXTENSION_ZIP_NAME));
+	await rename(staging.path, RELEASE_DIRECTORY);
 
 	process.stdout.write(
-		`${join(OUTPUT_DIRECTORY, extensionZipName)}\n${join(OUTPUT_DIRECTORY, sourcesZipName)}\n`,
+		`${join(RELEASE_PATH, EXTENSION_ZIP_NAME)}\n${join(RELEASE_PATH, SOURCES_ZIP_NAME)}\n`,
 	);
 }
 

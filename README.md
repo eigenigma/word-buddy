@@ -119,7 +119,7 @@ bun run build:dict       # rebuild dictionary artifacts from data/raw/
 bun run dict             # fetch:dict, then build:dict
 bun run build:firefox    # build unpacked extension into .output/firefox-mv3
 bun run zip              # build + pack the xpi from the working tree
-bun run package:firefox  # xpi and sources zip for AMO, rebuilt from HEAD
+bun run package:firefox  # AMO xpi + sources zip from HEAD, in .output/release/
 bun run submit:firefox   # upload to AMO as listed (requires .env.submit)
 bun run typecheck        # tsc --noEmit
 bun run lint             # biome check .
@@ -158,17 +158,18 @@ Key design choices:
 ## Release
 
 Published to AMO as a **listed** add-on. Submission credentials live in
-`.env.submit`, which is gitignored; copy `.env.submit.example` and fill in
-JWT credentials from the
+`.env.submit`, which is gitignored. It sets three variables:
+`FIREFOX_EXTENSION_ID`, plus `FIREFOX_JWT_ISSUER` and `FIREFOX_JWT_SECRET`
+from the
 [AMO Developer Hub](https://addons.mozilla.org/developers/addon/api/key/).
 
 1. Bump `version` in `package.json` and commit it.
-2. `bun run package:firefox` — on a clean working tree, writes
-   `git archive HEAD` to `.output/*-sources.zip`, rebuilds the extension
-   from that archive in a temp directory, and copies the result to
-   `.output/*-firefox.zip`.
-3. `bun run submit:firefox` — uploads to AMO; the version goes through
-   review before publication.
+2. `bun run package:firefox` — on a clean working tree, rebuilds the
+   extension from `git archive HEAD` in a temp directory. Only a successful
+   run writes `.output/release/`, holding `extension.zip` and the archive as
+   `sources.zip`; a failed one leaves it absent.
+3. `bun run submit:firefox` — uploads that pair to AMO; the version goes
+   through review before publication.
 4. After review passes, the listing page at
    `https://addons.mozilla.org/firefox/addon/word-buddy/` serves the new
    version. Installed copies auto-update via AMO.

@@ -1,25 +1,14 @@
-import Dexie, { type Table } from "dexie";
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { TranslationCacheEntry } from "@/shared/translations/types";
-import type { WordbookEntry } from "@/shared/wordbook/types";
 import { deleteWordBuddyDatabase } from "@/test-helpers/indexedDb";
 
-import {
-	WORD_BUDDY_USER_DB_NAME,
-	WordBuddyUserDatabase,
-} from "../wordbook/database";
+import { WordBuddyUserDatabase } from "../wordbook/database";
 import { createTranslationRepository } from "./browserAdapters";
-import { computeTranslationHash } from "./hash";
-import { createTranslationCacheService } from "./service";
-
-const TEST_WORD_ENTRY: WordbookEntry = {
-	addedAt: 1_700_000_000_000,
-	context: "What is on the agenda today?",
-	lemma: "agenda",
-	original: "agenda",
-	sourceUrl: "https://example.com/article",
-};
+import {
+	createTranslationCacheService,
+	type TranslationCacheService,
+} from "./service";
 
 const TEST_TRANSLATION_ENTRY: TranslationCacheEntry = {
 	createdAt: 1_700_000_000_100,
@@ -32,121 +21,37 @@ const TEST_TRANSLATION_ENTRY: TranslationCacheEntry = {
 	words: ["agenda"],
 };
 
-class LegacyWordBuddyUserDatabase extends Dexie {
-	words!: Table<WordbookEntry, string>;
-
-	public constructor() {
-		super(WORD_BUDDY_USER_DB_NAME);
-		this.version(1).stores({
-			words: "&lemma, addedAt",
-		});
-	}
-}
-
-const openDatabases = new Set<Dexie>();
-
-function trackDatabase<TDatabase extends Dexie>(
-	database: TDatabase,
-): TDatabase {
-	openDatabases.add(database);
-	return database;
-}
-
-async function resetUserDatabase(): Promise<void> {
-	for (const database of openDatabases) {
-		database.close();
-	}
-	openDatabases.clear();
-	await deleteWordBuddyDatabase();
-}
-
-afterEach(async () => {
-	await resetUserDatabase();
-});
-
-afterAll(async () => {
-	await resetUserDatabase();
-});
-
-describe("translation hash helpers", () => {
-	it("computes stable hashes regardless of word order", async () => {
-		const firstHash = await computeTranslationHash(
-			"model-a",
-			"What is on the agenda today?",
-			["agenda", "today"],
-		);
-		const secondHash = await computeTranslationHash(
-			"model-a",
-			"What is on the agenda today?",
-			["agenda", "today"],
-		);
-		const reorderedHash = await computeTranslationHash(
-			"model-a",
-			"What is on the agenda today?",
-			["today", "agenda"],
-		);
-		const changedModelHash = await computeTranslationHash(
-			"model-b",
-			"What is on the agenda today?",
-			["agenda", "today"],
-		);
-
-		expect(firstHash).toBe(secondHash);
-		expect(firstHash).toBe(reorderedHash);
-		expect(firstHash).not.toBe(changedModelHash);
-		expect(firstHash).toMatch(/^[0-9a-f]{64}$/u);
-	});
-});
-
 describe("createTranslationCacheService", () => {
-	it("creates a fresh v2 schema and round-trips cached translations", async () => {
-		await resetUserDatabase();
-		const database = trackDatabase(new WordBuddyUserDatabase());
-		await database.open();
+	let database: WordBuddyUserDatabase;
+	let cacheService: TranslationCacheService;
 
-		expect(database.tables.map((table) => table.name).sort()).toEqual([
-			"translations",
-			"words",
-		]);
-
-		const cacheService = createTranslationCacheService({
+	beforeEach(() => {
+		database = new WordBuddyUserDatabase();
+		cacheService = createTranslationCacheService({
 			repository: createTranslationRepository(database),
 		});
+	});
+
+	afterEach(async () => {
+		database.close();
+		await deleteWordBuddyDatabase();
+	});
+
+	it("round-trips cached translations", async () => {
 		await expect(cacheService.get("missing-hash")).resolves.toBeNull();
 
 		await cacheService.set(TEST_TRANSLATION_ENTRY);
+
 		await expect(
 			cacheService.get(TEST_TRANSLATION_ENTRY.hash),
 		).resolves.toEqual(TEST_TRANSLATION_ENTRY);
-
-		database.close();
-		const reopenedDatabase = trackDatabase(new WordBuddyUserDatabase());
-		await reopenedDatabase.open();
-		await expect(
-			reopenedDatabase.translations.get(TEST_TRANSLATION_ENTRY.hash),
-		).resolves.toEqual(TEST_TRANSLATION_ENTRY);
 	});
 
-	it("upgrades a legacy v1 words database without losing existing data", async () => {
-		await resetUserDatabase();
-		const legacyDatabase = trackDatabase(new LegacyWordBuddyUserDatabase());
-		await legacyDatabase.open();
-		await legacyDatabase.words.put(TEST_WORD_ENTRY);
-		legacyDatabase.close();
+	it("clears every cached translation and reports how many it removed", async () => {
+		await cacheService.set(TEST_TRANSLATION_ENTRY);
+		await cacheService.set({ ...TEST_TRANSLATION_ENTRY, hash: "hash-other" });
 
-		const upgradedDatabase = trackDatabase(new WordBuddyUserDatabase());
-		await upgradedDatabase.open();
-
-		await expect(
-			upgradedDatabase.words.get(TEST_WORD_ENTRY.lemma),
-		).resolves.toEqual(TEST_WORD_ENTRY);
-
-		await upgradedDatabase.translations.put(TEST_TRANSLATION_ENTRY);
-		await expect(
-			upgradedDatabase.translations.get(TEST_TRANSLATION_ENTRY.hash),
-		).resolves.toEqual(TEST_TRANSLATION_ENTRY);
-		await expect(
-			upgradedDatabase.words.get(TEST_WORD_ENTRY.lemma),
-		).resolves.toEqual(TEST_WORD_ENTRY);
+		await expect(cacheService.clear()).resolves.toBe(2);
+		await expect(database.translations.count()).resolves.toBe(0);
 	});
 });

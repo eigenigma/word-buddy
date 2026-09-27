@@ -39,8 +39,7 @@ Future versions update automatically via AMO.
 
 ```sh
 bun install
-bun run fetch:dict
-bun run build:dict
+bun run dict
 bun run build:firefox
 ```
 
@@ -94,6 +93,8 @@ pins each one to an upstream commit and a SHA-256.
    `dict-meta.json` records the SHA-256 of every shard and of
    `lemma-index.json`.
 
+`bun run dict` runs both steps in order.
+
 ### Reproducing an AMO submission build
 
 The sources zip submitted to AMO is `git archive` of the release commit.
@@ -101,8 +102,7 @@ Extract it, then, with the prerequisites above:
 
 ```sh
 bun install --frozen-lockfile
-bun run fetch:dict
-bun run build:dict
+bun run dict
 bun run build:firefox
 ```
 
@@ -116,6 +116,7 @@ locale does not change the output.
 bun install              # install deps (runs `wxt prepare` via postinstall)
 bun run fetch:dict       # download or verify the pinned dictionary sources
 bun run build:dict       # rebuild dictionary artifacts from data/raw/
+bun run dict             # fetch:dict, then build:dict
 bun run build:firefox    # build unpacked extension into .output/firefox-mv3
 bun run zip              # build + pack the xpi from the working tree
 bun run package:firefox  # xpi and sources zip for AMO, rebuilt from HEAD

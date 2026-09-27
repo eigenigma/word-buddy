@@ -81,8 +81,7 @@ dictionary:
     # build:dict peaks near 1.5GiB.
     KUBERNETES_MEMORY_REQUEST: "3Gi"
   script:
-    - bun run fetch:dict
-    - bun run build:dict
+    - bun run dict
   artifacts:
     paths:
       - public/data/

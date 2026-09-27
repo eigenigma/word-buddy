@@ -61,8 +61,7 @@ async function buildFromSources(
 		),
 	);
 	run(buildRoot, "bun", ["install", "--frozen-lockfile"]);
-	run(buildRoot, "bun", ["run", "fetch:dict"]);
-	run(buildRoot, "bun", ["run", "build:dict"]);
+	run(buildRoot, "bun", ["run", "dict"]);
 	run(buildRoot, "bun", ["run", "zip"]);
 }
 

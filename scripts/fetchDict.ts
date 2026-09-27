@@ -1,8 +1,7 @@
 import { createNodeSourceFileIo } from "./dict/nodeSourceFileIo";
 import { fetchSource } from "./dict/sourceFiles";
 import { DICTIONARY_SOURCES, type DictionarySource } from "./dict/sources";
-
-const REPOSITORY_ROOT_URL = new URL("../", import.meta.url);
+import { REPOSITORY_ROOT_URL } from "./repositoryRoot";
 
 async function main(): Promise<void> {
 	const io = createNodeSourceFileIo(REPOSITORY_ROOT_URL);

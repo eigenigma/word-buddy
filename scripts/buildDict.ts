@@ -18,8 +18,8 @@ import {
 import { readVerifiedSource, type SourceFileIo } from "./dict/sourceFiles";
 import { DICTIONARY_SOURCES, type DictionarySource } from "./dict/sources";
 import { sha256Hex } from "./dict/utils";
+import { REPOSITORY_ROOT_URL } from "./repositoryRoot";
 
-const REPOSITORY_ROOT_URL = new URL("../", import.meta.url);
 const PUBLIC_DIRECTORY_URL = new URL("public/", REPOSITORY_ROOT_URL);
 
 const DICT_SHARD_BYTE_LIMIT = 4 * 1024 * 1024;

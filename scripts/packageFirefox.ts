@@ -15,8 +15,8 @@ import { z } from "zod";
 import { createNodeSourceFileIo } from "./dict/nodeSourceFileIo";
 import type { SourceFileIo } from "./dict/sourceFiles";
 import { DICTIONARY_SOURCES, type DictionarySource } from "./dict/sources";
+import { REPOSITORY_ROOT_URL } from "./repositoryRoot";
 
-const REPOSITORY_ROOT_URL = new URL("../", import.meta.url);
 const REPOSITORY_ROOT = fileURLToPath(REPOSITORY_ROOT_URL);
 const OUTPUT_DIRECTORY = ".output";
 

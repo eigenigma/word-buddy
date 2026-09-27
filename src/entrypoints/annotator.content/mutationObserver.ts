@@ -1,4 +1,5 @@
 import { resolveElement } from "@/shared/dom/element";
+import type { Timers } from "@/shared/utils/timers";
 
 import type { TextReplacement } from "./renderer";
 import { BLOCK_SELECTOR } from "./skipPredicate";
@@ -10,11 +11,6 @@ type ObservedMutations = Pick<MutationObserver, "disconnect" | "observe">;
 export type CreateMutationObserver = (
 	callback: MutationCallback,
 ) => ObservedMutations;
-
-export interface DebounceTimers {
-	readonly clearTimeout: (timerId: number) => void;
-	readonly setTimeout: (callback: () => void, delay: number) => number;
-}
 
 export interface MutationObserverController {
 	// Registers a replacement the annotator is about to make, so its record is
@@ -28,7 +24,7 @@ export interface MutationObserverControllerDependencies {
 	readonly createObserver: CreateMutationObserver;
 	readonly isRelevantBlock: (element: Element) => element is HTMLElement;
 	readonly onBlockChanged: (block: HTMLElement) => void;
-	readonly timers: DebounceTimers;
+	readonly timers: Timers;
 }
 
 // A changed child list changes the text of the block around it, and an added

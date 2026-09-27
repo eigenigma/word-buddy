@@ -1,14 +1,11 @@
 import type { ContentScriptContext } from "wxt/utils/content-script-context";
 
+import type { Timers } from "@/shared/utils/timers";
+
 export type SchedulerContext = Pick<
 	ContentScriptContext,
 	"isInvalid" | "onInvalidated"
 >;
-
-export interface SchedulerTimers {
-	readonly clearTimeout: (timerId: number) => void;
-	readonly setTimeout: (callback: () => void, delay: number) => number;
-}
 
 export interface TimerScheduler {
 	readonly schedule: (callback: () => void, delay: number) => void;
@@ -19,7 +16,7 @@ export interface TimerScheduler {
 // timers.
 export function createTimerScheduler(
 	context: SchedulerContext,
-	timers: SchedulerTimers,
+	timers: Timers,
 ): TimerScheduler {
 	const pendingTimerIds = new Set<number>();
 

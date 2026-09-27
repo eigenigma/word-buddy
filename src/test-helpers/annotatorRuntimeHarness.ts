@@ -1,4 +1,3 @@
-import type { DebounceTimers } from "@/entrypoints/annotator.content/mutationObserver";
 import {
 	type AnnotatorRuntime,
 	type CreateVisibilityObserver,
@@ -14,6 +13,8 @@ import {
 	createAhoCorasickMatcher,
 } from "@/shared/matching/ahoCorasick";
 import { sleep } from "@/shared/utils/async";
+
+import { createManualTimers } from "./timerFakes";
 
 export interface TranslationCall {
 	readonly input: TranslateParagraphInput;
@@ -83,35 +84,11 @@ function createVisibility(): {
 	};
 }
 
-function createDebounceTimers(): {
-	readonly run: () => void;
-	readonly timers: DebounceTimers;
-} {
-	let pending: (() => void) | null = null;
-
-	return {
-		run: (): void => {
-			const callback = pending;
-			pending = null;
-			callback?.();
-		},
-		timers: {
-			clearTimeout: (): void => {
-				pending = null;
-			},
-			setTimeout: (callback: () => void): number => {
-				pending = callback;
-				return 1;
-			},
-		},
-	};
-}
-
 export function createAnnotatorHarness(
 	matchers: readonly (AhoCorasickMatcher | null)[],
 ): AnnotatorHarness {
 	const visibility = createVisibility();
-	const debounce = createDebounceTimers();
+	const manualTimers = createManualTimers();
 	const translations: TranslationCall[] = [];
 	const warnings: unknown[] = [];
 	const heldRecords: MutationRecord[] = [];
@@ -139,7 +116,7 @@ export function createAnnotatorHarness(
 				warnings.push(messages);
 			},
 		},
-		timers: debounce.timers,
+		timers: manualTimers.timers,
 		translate: (input: TranslateParagraphInput): Promise<TranslationMap> => {
 			const { promise, reject, resolve } =
 				Promise.withResolvers<TranslationMap>();
@@ -154,7 +131,7 @@ export function createAnnotatorHarness(
 			if (mutationObserver !== null && heldRecords.length > 0) {
 				onRecords?.(heldRecords.splice(0), mutationObserver);
 			}
-			debounce.run();
+			manualTimers.runAll();
 		},
 		isVisibilityObserved: (target: Element): boolean =>
 			visibility.observed.has(target),

@@ -5,10 +5,12 @@ import type { SelectionSnapshot } from "@/shared/dom/selection";
 import { sleep } from "@/shared/utils/async";
 import {
 	createFakeContext,
-	createManualTimers,
 	type FakeContext,
+} from "@/test-helpers/contextFakes";
+import {
+	createManualTimers,
 	type ManualTimers,
-} from "@/test-helpers/schedulerFakes";
+} from "@/test-helpers/timerFakes";
 import {
 	createSelectionPopupController,
 	type SelectionPopupController,

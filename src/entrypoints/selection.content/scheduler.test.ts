@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-	createFakeContext,
-	createManualTimers,
-} from "@/test-helpers/schedulerFakes";
+import { createFakeContext } from "@/test-helpers/contextFakes";
+import { createManualTimers } from "@/test-helpers/timerFakes";
 import { createTimerScheduler } from "./scheduler";
 
 describe("createTimerScheduler", () => {

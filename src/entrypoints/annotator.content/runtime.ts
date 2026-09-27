@@ -2,6 +2,7 @@ import type { ContentScriptContext } from "wxt/utils/content-script-context";
 
 import { LLM_CONFIG } from "@/shared/llm/config";
 import type { AhoCorasickMatcher } from "@/shared/matching/ahoCorasick";
+import type { Timers } from "@/shared/utils/timers";
 
 import {
 	annotateBlock,
@@ -14,7 +15,6 @@ import type { AnnotatorLogger } from "./logger";
 import {
 	type CreateMutationObserver,
 	createMutationObserverController,
-	type DebounceTimers,
 } from "./mutationObserver";
 import { createTranslationQueue } from "./queue";
 import type { TextReplacement } from "./renderer";
@@ -45,7 +45,7 @@ export interface AnnotatorRuntimeDependencies {
 	readonly ctx: Pick<ContentScriptContext, "isInvalid">;
 	readonly documentRef: Document;
 	readonly logger: AnnotatorLogger;
-	readonly timers: DebounceTimers;
+	readonly timers: Timers;
 	readonly translate: TranslateBlock;
 }
 

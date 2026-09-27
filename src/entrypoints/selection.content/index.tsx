@@ -4,175 +4,43 @@ import { createShadowRootUi } from "wxt/utils/content-script-ui/shadow-root";
 import {
 	readActiveSelection,
 	readSelectionContext,
+	type SelectionSnapshot,
 	type ViewportPoint,
 } from "@/shared/dom/selection";
-import { reportGlobalError, toError } from "@/shared/utils/errors";
+import { reportGlobalError } from "@/shared/utils/errors";
+import {
+	createSelectionPopupController,
+	type SelectionPopupController,
+} from "./controller";
 import type { PopupUi, PopupUiOptions, SelectionPopupHost } from "./popupHost";
 import { createSelectionPopup } from "./popupHost";
 import {
 	addResolvedSelectionToWordbook,
-	getCurrentPopupState,
-	hasActiveCardPopup,
 	resolveSelectionPopupState,
 } from "./resolveSelection";
-import { createTimerScheduler, type TimerScheduler } from "./scheduler";
-import type { SelectionBubbleUiState, SelectionPopupState } from "./state";
-import { addError, addInFlight, popupState, resolveInFlight } from "./state";
+import { createTimerScheduler } from "./scheduler";
+import type { SelectionPopupState } from "./state";
 import "virtual:uno.css";
 
-async function openSelectionPopup(
-	popupHost: SelectionPopupHost,
-	currentUiState: SelectionBubbleUiState,
-): Promise<void> {
-	try {
-		const state = await resolveSelectionPopupState({
-			context: readSelectionContext(currentUiState.selection),
-			original: currentUiState.selection.text,
-		});
-
-		if (popupState.value !== currentUiState) {
-			return;
-		}
-		if (!state) {
-			popupHost.hide();
-			return;
-		}
-
-		popupHost.showCard(state, currentUiState.selection.rect);
-	} catch (error: unknown) {
-		if (popupState.value === currentUiState) {
-			popupHost.hide();
-		}
-		throw toError(error);
-	} finally {
-		if (popupState.value === currentUiState) {
-			resolveInFlight.value = false;
-		}
-	}
-}
-
-async function addSelectionToWordbook(
-	scheduler: TimerScheduler,
-	popupHost: SelectionPopupHost,
-	currentPopupState: SelectionPopupState,
-): Promise<void> {
-	try {
-		const result = await addResolvedSelectionToWordbook({
-			addedAt: Date.now(),
-			popupState: currentPopupState,
-			sourceUrl: globalThis.location.href,
-		});
-
-		addInFlight.value = false;
-		if (!hasActiveCardPopup(popupState.value, currentPopupState.lemma)) {
-			return;
-		}
-		if (result.popupState === null) {
-			addError.value = result.error;
-			return;
-		}
-
-		popupState.value = {
-			kind: "card",
-			popup: result.popupState,
-		};
-		scheduler.schedule((): void => {
-			if (hasActiveCardPopup(popupState.value, currentPopupState.lemma)) {
-				popupHost.hide();
-			}
-		}, 150);
-	} catch (error: unknown) {
-		addInFlight.value = false;
-		if (hasActiveCardPopup(popupState.value, currentPopupState.lemma)) {
-			addError.value = toError(error).message;
-		}
-	}
-}
-
-function scheduleSelectionBubbleOpen(
-	scheduler: TimerScheduler,
-	popupHost: SelectionPopupHost,
-): void {
-	const currentUiState = popupState.value;
-	if (currentUiState?.kind !== "bubble" || resolveInFlight.value) {
-		return;
-	}
-
-	resolveInFlight.value = true;
-	scheduler.schedule((): void => {
-		openSelectionPopup(popupHost, currentUiState).catch(
-			(error: unknown): void => {
-				reportGlobalError("word-buddy: selection lookup failed", error);
-			},
-		);
-	}, 0);
-}
-
-function scheduleWordbookAdd(
-	scheduler: TimerScheduler,
-	popupHost: SelectionPopupHost,
-): void {
-	const currentPopupState = getCurrentPopupState(popupState.value);
-	if (!currentPopupState || addInFlight.value) {
-		return;
-	}
-
-	addInFlight.value = true;
-	addError.value = null;
-	scheduler.schedule((): void => {
-		addSelectionToWordbook(scheduler, popupHost, currentPopupState).catch(
-			(error: unknown): void => {
-				reportGlobalError("word-buddy: wordbook add failed", error);
-			},
-		);
-	}, 0);
-}
-
-function registerDismissListeners(
+function registerPageListeners(
 	ctx: ContentScriptContext,
+	controller: SelectionPopupController,
 	popupHost: SelectionPopupHost,
 ): void {
 	ctx.addEventListener(document, "mousedown", (event: MouseEvent): void => {
 		if (!popupHost.containsEvent(event)) {
-			popupHost.hide();
+			controller.hide();
 		}
 	});
 	ctx.addEventListener(document, "keydown", (event: KeyboardEvent): void => {
 		if (event.key === "Escape") {
-			popupHost.hide();
+			controller.hide();
 		}
 	});
-}
-
-function handleSelectionMouseup(
-	popupHost: SelectionPopupHost,
-	fallbackPoint: ViewportPoint,
-): void {
-	const selection = readActiveSelection(globalThis.window, fallbackPoint);
-	if (selection) {
-		popupHost.showBubble(selection);
-	}
-}
-
-function registerSelectionListener(
-	ctx: ContentScriptContext,
-	scheduler: TimerScheduler,
-	popupHost: SelectionPopupHost,
-): void {
 	ctx.addEventListener(document, "mouseup", (event: MouseEvent): void => {
-		if (popupHost.containsEvent(event)) {
-			return;
+		if (!popupHost.containsEvent(event)) {
+			controller.selectAt({ x: event.clientX, y: event.clientY });
 		}
-
-		const fallbackPoint = { x: event.clientX, y: event.clientY };
-		scheduler.schedule((): void => {
-			try {
-				handleSelectionMouseup(popupHost, fallbackPoint);
-			} catch (error: unknown) {
-				popupHost.hide();
-				throw toError(error);
-			}
-		}, 50);
 	});
 }
 
@@ -180,26 +48,35 @@ export default defineContentScript({
 	matches: ["<all_urls>"],
 	cssInjectionMode: "ui",
 	main: async (ctx: ContentScriptContext): Promise<void> => {
-		const scheduler = createTimerScheduler(ctx, globalThis.window);
-		let popupHost: SelectionPopupHost | null = null;
-		const onAdd = (): void => {
-			if (popupHost) {
-				scheduleWordbookAdd(scheduler, popupHost);
-			}
-		};
-		const onOpen = (): void => {
-			if (popupHost) {
-				scheduleSelectionBubbleOpen(scheduler, popupHost);
-			}
-		};
-
-		popupHost = await createSelectionPopup({
+		const controller = createSelectionPopupController({
+			addToWordbook: (popup: SelectionPopupState): Promise<void> =>
+				addResolvedSelectionToWordbook({
+					addedAt: Date.now(),
+					popupState: popup,
+					sourceUrl: globalThis.location.href,
+				}),
+			readSelection: (point: ViewportPoint): SelectionSnapshot | null =>
+				readActiveSelection(globalThis.window, point),
+			reportError: (error: unknown): void => {
+				reportGlobalError("word-buddy: selection popup failed", error);
+			},
+			resolve: (
+				selection: SelectionSnapshot,
+			): Promise<SelectionPopupState | null> =>
+				resolveSelectionPopupState({
+					context: readSelectionContext(selection),
+					original: selection.text,
+				}),
+			scheduler: createTimerScheduler(ctx, globalThis.window),
+		});
+		const popupHost = await createSelectionPopup({
 			createUi: (options: PopupUiOptions): Promise<PopupUi> =>
 				createShadowRootUi(ctx, options),
-			onAdd: onAdd,
-			onOpen: onOpen,
+			onAdd: controller.add,
+			onClose: controller.hide,
+			onOpen: controller.open,
+			state: controller.state,
 		});
-		registerDismissListeners(ctx, popupHost);
-		registerSelectionListener(ctx, scheduler, popupHost);
+		registerPageListeners(ctx, controller, popupHost);
 	},
 });

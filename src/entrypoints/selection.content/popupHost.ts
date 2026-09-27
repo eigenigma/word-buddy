@@ -1,10 +1,9 @@
+import { effect } from "@preact/signals";
 import { h, render } from "preact";
 import type {
 	ShadowRootContentScriptUi,
 	ShadowRootContentScriptUiOptions,
 } from "wxt/utils/content-script-ui/shadow-root";
-
-import type { SelectionSnapshot } from "@/shared/dom/selection";
 
 import {
 	computeBubbleCoordinates,
@@ -12,13 +11,11 @@ import {
 	type PopupCoordinates,
 	type ViewportDimensions,
 } from "./popupLayout";
-import { SelectionPopupRoot } from "./SelectionPopupRoot";
 import {
-	popupState,
-	resetPopupTransientState,
-	type SelectionPopupState,
-	type SelectionUiState,
-} from "./state";
+	SelectionPopupRoot,
+	type SelectionPopupRootProps,
+} from "./SelectionPopupRoot";
+import type { SelectionUiState } from "./state";
 
 export type PopupUi = ShadowRootContentScriptUi<HTMLElement>;
 export type PopupUiOptions = ShadowRootContentScriptUiOptions<HTMLElement>;
@@ -28,17 +25,12 @@ export type PopupUiOptions = ShadowRootContentScriptUiOptions<HTMLElement>;
 // preflight gives <html>.
 const CONTAINER_CLASS = "fixed z-2147483647 font-sans leading-normal";
 
-export interface SelectionPopupDependencies {
+export interface SelectionPopupDependencies extends SelectionPopupRootProps {
 	readonly createUi: (options: PopupUiOptions) => Promise<PopupUi>;
-	readonly onAdd: () => void;
-	readonly onOpen: () => void;
 }
 
 export interface SelectionPopupHost {
 	readonly containsEvent: (event: Event) => boolean;
-	readonly hide: () => void;
-	readonly showBubble: (selection: SelectionSnapshot) => void;
-	readonly showCard: (state: SelectionPopupState, rect: DOMRect) => void;
 }
 
 function getViewportDimensions(): ViewportDimensions {
@@ -50,29 +42,25 @@ function getViewportDimensions(): ViewportDimensions {
 	};
 }
 
+function computeCoordinates(uiState: SelectionUiState): PopupCoordinates {
+	return uiState.kind === "bubble"
+		? computeBubbleCoordinates(uiState.selection.rect, getViewportDimensions())
+		: computePopupCoordinates(uiState.anchor, getViewportDimensions());
+}
+
 export async function createSelectionPopup({
 	createUi,
-	onAdd,
-	onOpen,
+	...rootProps
 }: SelectionPopupDependencies): Promise<SelectionPopupHost> {
-	const hide = (): void => {
-		popupState.value = null;
-		resetPopupTransientState();
-	};
+	let stopPositioning = (): void => undefined;
 	const ui = await createUi({
 		name: "word-buddy-selection",
 		onMount: (uiContainer: HTMLElement): HTMLElement => {
-			render(
-				h(SelectionPopupRoot, {
-					onAdd: onAdd,
-					onClose: hide,
-					onOpen: onOpen,
-				}),
-				uiContainer,
-			);
+			render(h(SelectionPopupRoot, rootProps), uiContainer);
 			return uiContainer;
 		},
 		onRemove: (uiContainer: HTMLElement | undefined): void => {
+			stopPositioning();
 			if (uiContainer) {
 				render(null, uiContainer);
 			}
@@ -81,12 +69,13 @@ export async function createSelectionPopup({
 	});
 	ui.uiContainer.className = CONTAINER_CLASS;
 
-	const show = (
-		state: SelectionUiState,
-		coordinates: PopupCoordinates,
-	): void => {
-		popupState.value = state;
-		resetPopupTransientState();
+	stopPositioning = effect((): void => {
+		const uiState = rootProps.state.value;
+		if (uiState === null) {
+			return;
+		}
+
+		const coordinates = computeCoordinates(uiState);
 		ui.uiContainer.style.left = `${coordinates.left}px`;
 		ui.uiContainer.style.top = `${coordinates.top}px`;
 		// Mounting also reattaches a host the page has removed; Preact then
@@ -94,30 +83,12 @@ export async function createSelectionPopup({
 		if (!ui.shadowHost.isConnected) {
 			ui.mount();
 		}
-	};
+	});
 
 	return {
 		// A hidden popup renders nothing, so no event can start inside it.
 		containsEvent: (event: Event): boolean =>
-			popupState.value !== null && event.composedPath().includes(ui.shadowHost),
-		hide: hide,
-		showBubble: (selection: SelectionSnapshot): void => {
-			show(
-				{
-					kind: "bubble",
-					selection: selection,
-				},
-				computeBubbleCoordinates(selection.rect, getViewportDimensions()),
-			);
-		},
-		showCard: (state: SelectionPopupState, rect: DOMRect): void => {
-			show(
-				{
-					kind: "card",
-					popup: state,
-				},
-				computePopupCoordinates(rect, getViewportDimensions()),
-			);
-		},
+			rootProps.state.peek() !== null &&
+			event.composedPath().includes(ui.shadowHost),
 	};
 }

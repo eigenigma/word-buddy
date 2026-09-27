@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { type Signal, signal } from "@preact/signals";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { ContentScriptContext } from "wxt/utils/content-script-context";
@@ -15,7 +16,7 @@ import {
 	computePopupCoordinates,
 	type ViewportDimensions,
 } from "./popupLayout";
-import { popupState, type SelectionPopupState } from "./state";
+import type { SelectionPopupState, SelectionUiState } from "./state";
 
 const HOISTED_STYLE_SELECTOR = "style[wxt-shadow-root-document-styles]";
 // splitShadowRootCss hoists @property blocks into the host document, the same
@@ -27,6 +28,7 @@ const SELECTION_RECT = new DOMRect(100, 200, 40, 16);
 interface Harness {
 	readonly ctx: ContentScriptContext;
 	readonly popup: SelectionPopupHost;
+	readonly state: Signal<SelectionUiState | null>;
 	readonly ui: PopupUi;
 }
 
@@ -36,6 +38,7 @@ async function createHarness(): Promise<Harness> {
 		ctx.abort();
 	});
 	const createdUi = Promise.withResolvers<PopupUi>();
+	const state = signal<SelectionUiState | null>(null);
 	const popup = await createSelectionPopup({
 		createUi: async (options: PopupUiOptions): Promise<PopupUi> => {
 			const ui = await createShadowRootUi(ctx, {
@@ -46,9 +49,11 @@ async function createHarness(): Promise<Harness> {
 			return ui;
 		},
 		onAdd: vi.fn<() => void>(),
+		onClose: vi.fn<() => void>(),
 		onOpen: vi.fn<() => void>(),
+		state: state,
 	});
-	return { ctx: ctx, popup: popup, ui: await createdUi.promise };
+	return { ctx: ctx, popup: popup, state: state, ui: await createdUi.promise };
 }
 
 function createCardState(alreadyAdded: boolean): SelectionPopupState {
@@ -61,29 +66,35 @@ function createCardState(alreadyAdded: boolean): SelectionPopupState {
 	};
 }
 
-function showBubbleAt(popup: SelectionPopupHost, rect: DOMRect): void {
+function showBubbleAt({ state }: Harness, rect: DOMRect): void {
 	act(() => {
-		popup.showBubble({
-			range: document.createRange(),
-			rect: rect,
-			text: "went",
-		});
+		state.value = {
+			kind: "bubble",
+			resolving: false,
+			selection: { range: document.createRange(), rect: rect, text: "went" },
+		};
 	});
 }
 
 function showCardAt(
-	popup: SelectionPopupHost,
+	{ state }: Harness,
 	rect: DOMRect,
 	alreadyAdded = false,
 ): void {
 	act(() => {
-		popup.showCard(createCardState(alreadyAdded), rect);
+		state.value = {
+			addError: null,
+			adding: false,
+			anchor: rect,
+			kind: "card",
+			popup: createCardState(alreadyAdded),
+		};
 	});
 }
 
-function hide(popup: SelectionPopupHost): void {
+function hide({ state }: Harness): void {
 	act(() => {
-		popup.hide();
+		state.value = null;
 	});
 }
 
@@ -102,31 +113,31 @@ function getViewport(): ViewportDimensions {
 }
 
 afterEach(() => {
-	popupState.value = null;
 	document.body.replaceChildren();
 });
 
 describe("createSelectionPopup", () => {
 	it("keeps the one hoisted style element across shows and hides", async () => {
-		const { popup } = await createHarness();
+		const harness = await createHarness();
 
-		showBubbleAt(popup, SELECTION_RECT);
+		showBubbleAt(harness, SELECTION_RECT);
 		const hoistedStyle = document.querySelector(HOISTED_STYLE_SELECTOR);
-		showCardAt(popup, SELECTION_RECT);
-		hide(popup);
-		showBubbleAt(popup, new DOMRect(300, 400, 40, 16));
+		showCardAt(harness, SELECTION_RECT);
+		hide(harness);
+		showBubbleAt(harness, new DOMRect(300, 400, 40, 16));
 
 		expect(document.querySelectorAll(HOISTED_STYLE_SELECTOR)).toHaveLength(1);
 		expect(document.querySelector(HOISTED_STYLE_SELECTOR)).toBe(hoistedStyle);
 	});
 
 	it("moves the popup on every show, bubble to card included", async () => {
-		const { popup, ui } = await createHarness();
+		const harness = await createHarness();
+		const { ui } = harness;
 		const cardRect = new DOMRect(500, 50, 60, 18);
 
-		showBubbleAt(popup, SELECTION_RECT);
+		showBubbleAt(harness, SELECTION_RECT);
 		const bubblePosition = readPosition(ui);
-		showCardAt(popup, cardRect);
+		showCardAt(harness, cardRect);
 		const cardPosition = readPosition(ui);
 
 		const expectedBubble = computeBubbleCoordinates(
@@ -146,12 +157,13 @@ describe("createSelectionPopup", () => {
 	});
 
 	it("mounts once for the bubble and the card that follows it", async () => {
-		const { popup, ui } = await createHarness();
+		const harness = await createHarness();
+		const { ui } = harness;
 		const mount = vi.spyOn(ui, "mount");
 
-		showBubbleAt(popup, SELECTION_RECT);
+		showBubbleAt(harness, SELECTION_RECT);
 		const bubbleLabel = ui.uiContainer.querySelector("button")?.textContent;
-		showCardAt(popup, SELECTION_RECT);
+		showCardAt(harness, SELECTION_RECT);
 
 		expect(bubbleLabel).toBe("WB");
 		expect(ui.uiContainer.querySelector("h2")?.textContent).toBe("go");
@@ -159,12 +171,13 @@ describe("createSelectionPopup", () => {
 	});
 
 	it("reattaches a host the page removed without rebuilding the tree", async () => {
-		const { popup, ui } = await createHarness();
-		showCardAt(popup, SELECTION_RECT);
+		const harness = await createHarness();
+		const { ui } = harness;
+		showCardAt(harness, SELECTION_RECT);
 		const renderedRoot = ui.uiContainer.firstElementChild;
 
 		ui.shadowHost.remove();
-		showCardAt(popup, SELECTION_RECT, true);
+		showCardAt(harness, SELECTION_RECT, true);
 
 		expect(document.body.contains(ui.shadowHost)).toBe(true);
 		expect(ui.uiContainer.firstElementChild).toBe(renderedRoot);
@@ -172,18 +185,19 @@ describe("createSelectionPopup", () => {
 	});
 
 	it("hides by clearing the rendered popup while the host stays mounted", async () => {
-		const { popup, ui } = await createHarness();
-		showCardAt(popup, SELECTION_RECT);
+		const harness = await createHarness();
+		const { ui } = harness;
+		showCardAt(harness, SELECTION_RECT);
 
-		hide(popup);
+		hide(harness);
 
-		expect(popupState.value).toBeNull();
 		expect(ui.shadowHost.isConnected).toBe(true);
 		expect(ui.uiContainer.firstElementChild).toBeNull();
 	});
 
 	it("counts only events that start inside the shown popup", async () => {
-		const { ctx, popup, ui } = await createHarness();
+		const harness = await createHarness();
+		const { ctx, popup, ui } = harness;
 		const insideResults: boolean[] = [];
 		document.addEventListener(
 			"mousedown",
@@ -198,18 +212,19 @@ describe("createSelectionPopup", () => {
 			);
 		};
 
-		showCardAt(popup, SELECTION_RECT);
+		showCardAt(harness, SELECTION_RECT);
 		dispatchMousedown(ui.uiContainer.querySelector("button"));
 		dispatchMousedown(document.body);
-		hide(popup);
+		hide(harness);
 		dispatchMousedown(ui.uiContainer);
 
 		expect(insideResults).toStrictEqual([true, false, false]);
 	});
 
 	it("removes the host and the hoisted style once the context is invalidated", async () => {
-		const { ctx, popup, ui } = await createHarness();
-		showCardAt(popup, SELECTION_RECT);
+		const harness = await createHarness();
+		const { ctx, ui } = harness;
+		showCardAt(harness, SELECTION_RECT);
 
 		ctx.abort();
 

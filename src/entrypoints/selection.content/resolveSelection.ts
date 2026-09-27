@@ -4,7 +4,7 @@ import {
 	requestWordbookExists,
 } from "@/shared/runtime/wordbookClient";
 
-import type { SelectionPopupState, SelectionUiState } from "./state";
+import type { SelectionPopupState } from "./state";
 
 interface ResolveSelectionPopupStateInput {
 	readonly context: string;
@@ -15,31 +15,6 @@ interface AddResolvedSelectionToWordbookInput {
 	readonly addedAt: number;
 	readonly popupState: SelectionPopupState;
 	readonly sourceUrl: string;
-}
-
-export type AddResolvedSelectionToWordbookResult =
-	| {
-			readonly error: string;
-			readonly popupState: null;
-	  }
-	| {
-			readonly error: null;
-			readonly popupState: SelectionPopupState;
-	  };
-
-export function hasActiveCardPopup(
-	currentUiState: SelectionUiState | null,
-	lemma: string,
-): boolean {
-	return (
-		currentUiState?.kind === "card" && currentUiState.popup.lemma === lemma
-	);
-}
-
-export function getCurrentPopupState(
-	currentUiState: SelectionUiState | null,
-): SelectionPopupState | null {
-	return currentUiState?.kind === "card" ? currentUiState.popup : null;
 }
 
 function createWordbookAddInput({
@@ -62,7 +37,7 @@ export async function addResolvedSelectionToWordbook({
 	addedAt,
 	popupState,
 	sourceUrl,
-}: AddResolvedSelectionToWordbookInput): Promise<AddResolvedSelectionToWordbookResult> {
+}: AddResolvedSelectionToWordbookInput): Promise<void> {
 	const response = await requestWordbookAdd(
 		createWordbookAddInput({
 			addedAt: addedAt,
@@ -72,19 +47,8 @@ export async function addResolvedSelectionToWordbook({
 	);
 
 	if (response.error) {
-		return {
-			error: response.error,
-			popupState: null,
-		};
+		throw new Error(response.error);
 	}
-
-	return {
-		error: null,
-		popupState: {
-			...popupState,
-			alreadyAdded: true,
-		},
-	};
 }
 
 export async function resolveSelectionPopupState({

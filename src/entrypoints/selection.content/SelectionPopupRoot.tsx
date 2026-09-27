@@ -1,58 +1,33 @@
+import type { ReadonlySignal } from "@preact/signals";
 import type { JSX } from "preact";
 
 import { PopupCard } from "./PopupCard";
-import {
-	addError,
-	popupState,
-	resolveInFlight,
-	type SelectionPopupState,
-} from "./state";
+import type { SelectionUiState } from "./state";
 
-interface SelectionPopupRootProps {
+export interface SelectionPopupRootProps {
 	readonly onAdd: () => void;
 	readonly onClose: () => void;
 	readonly onOpen: () => void;
+	readonly state: ReadonlySignal<SelectionUiState | null>;
 }
 
 function SelectionBubble({
 	onOpen,
+	resolving,
 }: {
 	readonly onOpen: () => void;
+	readonly resolving: boolean;
 }): JSX.Element {
-	const isResolving = resolveInFlight.value;
-
 	return (
 		<button
 			aria-label="Show word details"
 			className="flex size-10 items-center justify-center rounded-full border border-slate-200 bg-white font-semibold text-[11px] text-slate-700 tracking-wide shadow-lg transition hover:bg-slate-50 disabled:cursor-wait disabled:opacity-70"
-			disabled={isResolving}
+			disabled={resolving}
 			onClick={onOpen}
 			type="button"
 		>
-			{isResolving ? "..." : "WB"}
+			{resolving ? "..." : "WB"}
 		</button>
-	);
-}
-
-function SelectionCard({
-	onAdd,
-	onClose,
-	popup,
-}: {
-	readonly onAdd: () => void;
-	readonly onClose: () => void;
-	readonly popup: SelectionPopupState;
-}): JSX.Element {
-	return (
-		<PopupCard
-			addError={addError.value}
-			alreadyAdded={popup.alreadyAdded}
-			entry={popup.entry}
-			lemma={popup.lemma}
-			onAdd={onAdd}
-			onClose={onClose}
-			original={popup.original}
-		/>
 	);
 }
 
@@ -60,18 +35,24 @@ export function SelectionPopupRoot({
 	onAdd,
 	onClose,
 	onOpen,
+	state,
 }: SelectionPopupRootProps): JSX.Element | null {
-	const uiState = popupState.value;
+	const uiState = state.value;
 
 	if (uiState === null) {
 		return null;
 	}
 
 	if (uiState.kind === "bubble") {
-		return <SelectionBubble onOpen={onOpen} />;
+		return <SelectionBubble onOpen={onOpen} resolving={uiState.resolving} />;
 	}
 
 	return (
-		<SelectionCard onAdd={onAdd} onClose={onClose} popup={uiState.popup} />
+		<PopupCard
+			addError={uiState.addError}
+			onAdd={onAdd}
+			onClose={onClose}
+			popup={uiState.popup}
+		/>
 	);
 }

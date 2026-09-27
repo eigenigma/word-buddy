@@ -2,18 +2,17 @@ import type { JSX } from "preact";
 
 import type { DictionaryEntry } from "@/shared/dictionary/types";
 
+import type { SelectionPopupState } from "./state";
+
 const EMPTY_STATE_LABEL =
 	"No dictionary entry found. You can still add this word to your wordbook.";
 const EXISTING_WORD_LABEL = "Already in wordbook";
 
 interface PopupCardProps {
 	readonly addError: string | null;
-	readonly alreadyAdded: boolean;
-	readonly entry: DictionaryEntry | null;
-	readonly lemma: string;
 	readonly onAdd: () => void;
 	readonly onClose: () => void;
-	readonly original: string;
+	readonly popup: SelectionPopupState;
 }
 
 function renderFrequencyBadge(
@@ -74,13 +73,11 @@ function renderAction(
 
 export function PopupCard({
 	addError,
-	alreadyAdded,
-	entry,
-	lemma,
 	onAdd,
 	onClose,
-	original,
+	popup,
 }: PopupCardProps): JSX.Element {
+	const { alreadyAdded, entry, lemma, original } = popup;
 	const showOriginal = original !== lemma;
 
 	return (

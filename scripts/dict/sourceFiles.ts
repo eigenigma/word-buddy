@@ -71,3 +71,21 @@ export async function fetchSource(
 	await io.write(source.path, content);
 	return "downloaded";
 }
+
+export type SourceCopyResult = "copied" | "missing";
+
+export type SourceFileCopier = (path: string) => Promise<SourceCopyResult>;
+
+// Saves a download when the raw sources are already at hand; fetch:dict still
+// verifies every copied file against its pinned hash.
+export async function copyDictionarySources(
+	sources: readonly DictionarySource[],
+	copy: SourceFileCopier,
+): Promise<void> {
+	await Promise.all(
+		sources.map(
+			(source: DictionarySource): Promise<SourceCopyResult> =>
+				copy(source.path),
+		),
+	);
+}

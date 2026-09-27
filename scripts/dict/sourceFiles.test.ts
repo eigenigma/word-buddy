@@ -1,8 +1,11 @@
 import { describe, expect, it, type Mock, vi } from "vitest";
 
 import {
+	copyDictionarySources,
 	fetchSource,
 	readVerifiedSource,
+	type SourceCopyResult,
+	type SourceFileCopier,
 	type SourceFileIo,
 } from "./sourceFiles";
 import type { DictionarySource } from "./sources";
@@ -103,5 +106,48 @@ describe("fetchSource", () => {
 			`${TEST_SOURCE.url} has sha256 ${sha256Hex(TAMPERED_CONTENT)}, expected ${TEST_SOURCE.sha256}.`,
 		);
 		expect(io.write).not.toHaveBeenCalled();
+	});
+});
+
+describe("copyDictionarySources", () => {
+	const OTHER_SOURCE: DictionarySource = {
+		path: "data/raw/other.txt",
+		sha256: "unused",
+		url: "https://example.test/other.txt",
+	};
+
+	function createInMemoryCopier(
+		from: ReadonlyMap<string, Uint8Array>,
+		to: Map<string, Uint8Array>,
+	): SourceFileCopier {
+		return (path: string): Promise<SourceCopyResult> => {
+			const content = from.get(path);
+			if (content === undefined) {
+				return Promise.resolve("missing");
+			}
+
+			to.set(path, content);
+			return Promise.resolve("copied");
+		};
+	}
+
+	it("copies the sources that exist and skips the missing ones", async () => {
+		const from = new Map([[TEST_SOURCE.path, PINNED_CONTENT]]);
+		const to = new Map<string, Uint8Array>();
+
+		await copyDictionarySources(
+			[TEST_SOURCE, OTHER_SOURCE],
+			createInMemoryCopier(from, to),
+		);
+
+		expect(to).toEqual(new Map([[TEST_SOURCE.path, PINNED_CONTENT]]));
+	});
+
+	it("propagates a copy failure", async () => {
+		const failure = new Error("disk full");
+
+		await expect(
+			copyDictionarySources([TEST_SOURCE], () => Promise.reject(failure)),
+		).rejects.toBe(failure);
 	});
 });

@@ -12,9 +12,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { z } from "zod";
 
-import { createNodeSourceFileIo } from "./dict/nodeSourceFileIo";
-import type { SourceFileIo } from "./dict/sourceFiles";
-import { DICTIONARY_SOURCES, type DictionarySource } from "./dict/sources";
+import { createNodeSourceFileCopier } from "./dict/nodeSourceFileIo";
+import { copyDictionarySources } from "./dict/sourceFiles";
+import { DICTIONARY_SOURCES } from "./dict/sources";
 import { REPOSITORY_ROOT_URL } from "./repositoryRoot";
 
 const REPOSITORY_ROOT = fileURLToPath(REPOSITORY_ROOT_URL);
@@ -48,32 +48,17 @@ async function readPackageManifest(): Promise<PackageManifest> {
 	return packageManifestSchema.parse(JSON.parse(text));
 }
 
-// Saves a download when the raw sources are already here; fetch:dict still
-// verifies every copied file against its pinned hash.
-async function copyDictionarySources(
-	from: SourceFileIo,
-	to: SourceFileIo,
-): Promise<void> {
-	await Promise.all(
-		Object.values(DICTIONARY_SOURCES).map(
-			async (source: DictionarySource): Promise<void> => {
-				const content = await from.read(source.path);
-				if (content !== null) {
-					await to.write(source.path, content);
-				}
-			},
-		),
-	);
-}
-
 async function buildFromSources(
 	sourcesZipPath: string,
 	buildRoot: string,
 ): Promise<void> {
 	run(buildRoot, "unzip", ["-q", sourcesZipPath, "-d", buildRoot]);
 	await copyDictionarySources(
-		createNodeSourceFileIo(REPOSITORY_ROOT_URL),
-		createNodeSourceFileIo(pathToFileURL(`${buildRoot}/`)),
+		Object.values(DICTIONARY_SOURCES),
+		createNodeSourceFileCopier(
+			REPOSITORY_ROOT_URL,
+			pathToFileURL(`${buildRoot}/`),
+		),
 	);
 	run(buildRoot, "bun", ["install", "--frozen-lockfile"]);
 	run(buildRoot, "bun", ["run", "fetch:dict"]);

@@ -64,7 +64,6 @@ The toolbar popup exposes a per-host Pause/Resume toggle for the current tab.
 | -------------- | --------------------------------------------------------- |
 | `storage`      | Persist settings, wordbook, translation cache, blocklist  |
 | `activeTab`    | Interact with the current tab for lookups and annotation  |
-| `tabs`         | Broadcast setting changes to open tabs for invalidation   |
 | `<all_urls>`   | Annotate English text on any site you visit               |
 
 ## Development

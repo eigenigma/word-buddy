@@ -54,7 +54,7 @@ export default defineConfig({
 		action: {
 			default_title: "Word Buddy Settings",
 		},
-		permissions: ["storage", "activeTab", "tabs"],
+		permissions: ["storage", "activeTab"],
 		host_permissions: ["<all_urls>"],
 		browser_specific_settings: {
 			gecko: {

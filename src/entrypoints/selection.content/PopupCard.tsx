@@ -84,13 +84,7 @@ export function PopupCard({
 	const showOriginal = original !== lemma;
 
 	return (
-		<div
-			className="rounded-xl border border-slate-200 bg-white px-4 py-3 font-sans text-slate-800 shadow-xl"
-			style={{
-				width: "20rem",
-				maxWidth: "calc(100vw - 1rem)",
-			}}
-		>
+		<div className="w-80 max-w-[calc(100vw-16px)] rounded-xl border border-slate-200 bg-white px-4 py-3 font-sans text-slate-800 shadow-xl">
 			<div className="flex items-start justify-between gap-3">
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-2">

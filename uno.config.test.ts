@@ -2,17 +2,20 @@
 import { globSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { createGenerator } from "unocss";
+import { createGenerator, type UserConfig } from "unocss";
 import UnoCSS, { type UnocssVitePluginAPI } from "unocss/vite";
 import { assert, describe, expect, it } from "vitest";
 import { splitShadowRootCss } from "wxt/utils/split-shadow-root-css";
 
-import unoConfig, { CSS_VARIABLE_PREFIX } from "./uno.config";
+import unoConfig, { CSS_VARIABLE_PREFIX, createUnoConfig } from "./uno.config";
 
 // preset-wind4 tracks theme usage in module state that only a new generator
 // resets, so every call builds its own.
-async function generateCss(tokens: readonly string[]): Promise<string> {
-	const generator = await createGenerator(unoConfig);
+async function generateCss(
+	tokens: readonly string[],
+	config: UserConfig = unoConfig,
+): Promise<string> {
+	const generator = await createGenerator(config);
 	const { css } = await generator.generate(new Set(tokens));
 	return css;
 }
@@ -21,9 +24,13 @@ const { documentCss, shadowCss } = splitShadowRootCss(
 	await generateCss(["bg-white", "shadow-xl", "sm:flex-row"]),
 );
 
-const shadowSheet = new CSSStyleSheet();
-shadowSheet.replaceSync(shadowCss);
-const shadowRules = Array.from(shadowSheet.cssRules);
+function parseRules(css: string): CSSRule[] {
+	const sheet = new CSSStyleSheet();
+	sheet.replaceSync(css);
+	return Array.from(sheet.cssRules);
+}
+
+const shadowRules = parseRules(shadowCss);
 
 const hoistedPreludes = documentCss
 	.split("}")
@@ -38,19 +45,22 @@ function isMediaRule(rule: CSSRule): rule is CSSMediaRule {
 	return rule instanceof CSSMediaRule;
 }
 
-function findStyleRule(selectorText: string): CSSStyleRule | undefined {
-	return shadowRules
+function findStyleRule(
+	rules: readonly CSSRule[],
+	selectorText: string,
+): CSSStyleRule | undefined {
+	return rules
 		.filter(isStyleRule)
 		.find((rule) => rule.selectorText === selectorText);
 }
 
 describe("uno.config shadow-root stylesheet", () => {
 	it("scopes theme variables to :host", () => {
-		expect(findStyleRule(":root, :host")).toBeDefined();
+		expect(findStyleRule(shadowRules, ":root, :host")).toBeDefined();
 	});
 
 	it("applies the base reset to :host", () => {
-		expect(findStyleRule("html, :host")).toBeDefined();
+		expect(findStyleRule(shadowRules, "html, :host")).toBeDefined();
 	});
 
 	it("makes every border solid through the universal reset", () => {
@@ -64,9 +74,10 @@ describe("uno.config shadow-root stylesheet", () => {
 
 	it("declares property initial values outside any @supports wrapper", () => {
 		expect(
-			findStyleRule("*, ::before, ::after, ::backdrop")?.style.getPropertyValue(
-				`--${CSS_VARIABLE_PREFIX}bg-opacity`,
-			),
+			findStyleRule(
+				shadowRules,
+				"*, ::before, ::after, ::backdrop",
+			)?.style.getPropertyValue(`--${CSS_VARIABLE_PREFIX}bg-opacity`),
 		).toBe("100%");
 	});
 
@@ -125,17 +136,47 @@ async function extractSourceClasses(): Promise<string[]> {
 	return Array.from(new Set(perModule.flatMap((tokens) => Array.from(tokens))));
 }
 
+const sourceClasses: readonly string[] = await extractSourceClasses();
+
 // Vite scans modules concurrently, so classes reach the generator in a
 // different order on every build, yet AMO rebuilds the sources and expects
 // the same CSS hash. Upstream preset-wind4 prints on-demand theme variables
 // in first-use order; the patch under patches/ sorts them.
 describe("uno.config output stability", () => {
 	it("emits the same CSS whatever order the source classes arrive in", async () => {
-		const classes = await extractSourceClasses();
-
-		const forward = await generateCss(classes);
-		const reversed = await generateCss(classes.toReversed());
+		const forward = await generateCss(sourceClasses);
+		const reversed = await generateCss(sourceClasses.toReversed());
 
 		expect(reversed).toBe(forward);
+	});
+});
+function readDeclarationValues(rules: readonly CSSRule[]): string[] {
+	return rules.flatMap((rule) => {
+		if (isStyleRule(rule)) {
+			return Array.from(rule.style, (property) =>
+				rule.style.getPropertyValue(property),
+			);
+		}
+		if ("cssRules" in rule && rule.cssRules instanceof CSSRuleList) {
+			return readDeclarationValues(Array.from(rule.cssRules));
+		}
+		return [];
+	});
+}
+
+describe("uno.config px build", () => {
+	it("writes no rem into any declaration, theme variables included", async () => {
+		const rules = parseRules(
+			splitShadowRootCss(
+				await generateCss(sourceClasses, createUnoConfig({ remToPx: true })),
+			).shadowCss,
+		);
+		const values = readDeclarationValues(rules);
+
+		expect(values).not.toHaveLength(0);
+		expect(values.filter((value) => value.includes("rem"))).toEqual([]);
+		expect(
+			findStyleRule(rules, ":root, :host")?.style.getPropertyValue("--spacing"),
+		).toBe("4px");
 	});
 });

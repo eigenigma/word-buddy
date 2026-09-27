@@ -1,7 +1,6 @@
 import type { JSX } from "preact";
 
 import {
-	DISABLED_BUTTON_CLASS,
 	SECONDARY_BUTTON_CLASS,
 	STATUS_BANNER_CLASS,
 } from "@/shared/ui/styles";
@@ -74,9 +73,7 @@ export function TranslationCacheSection(): JSX.Element {
 					</p>
 				</div>
 				<button
-					className={
-						isClearing ? DISABLED_BUTTON_CLASS : SECONDARY_BUTTON_CLASS
-					}
+					className={SECONDARY_BUTTON_CLASS}
 					disabled={isClearing}
 					onClick={(): void => {
 						clearTranslationCache().catch(reportTranslationCacheClearError);

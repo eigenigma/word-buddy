@@ -3,7 +3,6 @@ import { useCallback, useEffect } from "preact/hooks";
 
 import type { TextInputEvent } from "@/shared/dom/events";
 import {
-	DISABLED_BUTTON_CLASS,
 	INPUT_CLASS,
 	PRIMARY_BUTTON_CLASS,
 	STATUS_BANNER_CLASS,
@@ -91,10 +90,6 @@ function HeaderBar({
 	entryCountLabel,
 	onExport,
 }: HeaderBarProps): JSX.Element {
-	const exportButtonClassName = canExport
-		? PRIMARY_BUTTON_CLASS
-		: DISABLED_BUTTON_CLASS;
-
 	return (
 		<header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 			<div className="flex flex-wrap items-center gap-3">
@@ -106,7 +101,7 @@ function HeaderBar({
 				)}
 			</div>
 			<button
-				className={exportButtonClassName}
+				className={PRIMARY_BUTTON_CLASS}
 				disabled={!canExport}
 				onClick={onExport}
 				type="button"

@@ -4,7 +4,6 @@ import type { JSX } from "preact";
 import type { TextInputEvent } from "@/shared/dom/events";
 import { isSettingsComplete, type LlmSettings } from "@/shared/settings/types";
 import {
-	DISABLED_BUTTON_CLASS,
 	INPUT_CLASS,
 	PANEL_CLASS,
 	PRIMARY_BUTTON_CLASS,
@@ -225,9 +224,7 @@ function SettingsReadyState({
 			/>
 			<div className="mt-5 flex items-center justify-end">
 				<button
-					className={
-						isSaving || !isDirty ? DISABLED_BUTTON_CLASS : PRIMARY_BUTTON_CLASS
-					}
+					className={PRIMARY_BUTTON_CLASS}
 					disabled={isSaving || !isDirty}
 					onClick={(): void => {
 						saveSettings().catch(reportSettingsSaveError);

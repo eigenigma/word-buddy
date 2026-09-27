@@ -8,7 +8,6 @@ import type { LemmaRepository } from "./repositories";
 
 const LEMMA_ROWS: readonly LemmaEntry[] = [
 	{ lemma: "run", surface: "ran" },
-	{ lemma: "run", surface: "run" },
 	{ lemma: "run", surface: "running" },
 	{ lemma: "run", surface: "runs" },
 	{ lemma: "agenda", surface: "agendas" },
@@ -28,7 +27,7 @@ describe("createLemmaExpansionService", () => {
 		});
 
 		expect(await service.expandLemmas(["run", "unknown"])).toEqual({
-			run: ["ran", "run", "running", "runs"],
+			run: ["ran", "running", "runs", "run"],
 			unknown: ["unknown"],
 		});
 		expect(listByLemmas).toHaveBeenCalledWith(["run", "unknown"]);

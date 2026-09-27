@@ -147,10 +147,6 @@ function mountGlossParagraph(): {
 }
 
 beforeEach(() => {
-	resetDocumentBody();
-	globalThis.getSelection()?.removeAllRanges();
-	restoreRangeGeometry();
-	vi.restoreAllMocks();
 	stubCheckVisibility((): boolean => true);
 });
 
@@ -159,7 +155,6 @@ afterEach(() => {
 	resetDocumentBody();
 	restoreRangeGeometry();
 	restoreCheckVisibility();
-	vi.restoreAllMocks();
 });
 
 describe("getSelectionRect", () => {

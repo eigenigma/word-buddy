@@ -14,10 +14,7 @@ function restoreSegmenter(): void {
 	}
 }
 
-afterEach(() => {
-	restoreSegmenter();
-	vi.restoreAllMocks();
-});
+afterEach(restoreSegmenter);
 
 describe("extractContainingSentence", () => {
 	it("returns an empty string when the block text is blank", () => {

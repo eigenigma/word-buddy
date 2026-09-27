@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { staticDictionaryDb } from "@/background/dictionary/database";
 import type { LemmaExpansionServiceDependencies } from "@/background/dictionary/lemmaExpansionService";
@@ -102,10 +102,6 @@ beforeEach(async () => {
 		staticDictionaryDb.dict.clear(),
 		staticDictionaryDb.lemma.clear(),
 	]);
-});
-
-afterEach(() => {
-	vi.restoreAllMocks();
 });
 
 describe("createDictionaryBrowserAdapter", () => {

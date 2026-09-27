@@ -34,6 +34,7 @@ export default defineConfig({
 				inline: ["wxt"],
 			},
 		},
+		restoreMocks: true,
 		setupFiles: ["fake-indexeddb/auto"],
 		unstubGlobals: true,
 	},

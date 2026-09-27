@@ -1,17 +1,12 @@
 import { z } from "zod";
 
-import type {
-	TranslateParagraphInput,
-	TranslationMap,
-} from "@/shared/llm/types";
-
-const NullableStringSchema = z.string().nullable();
-const ReadonlyStringArraySchema: z.ZodType<readonly string[]> = z
-	.array(z.string())
-	.readonly();
-const ReadonlyStringRecordSchema: z.ZodType<TranslationMap> = z
-	.record(z.string(), z.string())
-	.readonly();
+import type { TranslateParagraphInput } from "@/shared/llm/types";
+import {
+	NullableStringSchema,
+	NumberSchema,
+	ReadonlyStringArraySchema,
+	ReadonlyStringRecordSchema,
+} from "@/shared/utils/schemas";
 
 const TranslateParagraphInputSchema: z.ZodType<TranslateParagraphInput> = z
 	.object({
@@ -19,10 +14,6 @@ const TranslateParagraphInputSchema: z.ZodType<TranslateParagraphInput> = z
 		words: ReadonlyStringArraySchema,
 	})
 	.readonly();
-
-const NumberSchema: z.ZodType<number> = z.custom<number>(
-	(value): value is number => typeof value === "number",
-);
 
 export const LLM_TRANSLATE_PARAGRAPH_MESSAGE_TYPE =
 	"wordBuddy.llm.translateParagraph" as const;

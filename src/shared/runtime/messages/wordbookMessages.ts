@@ -1,17 +1,14 @@
 import { z } from "zod";
 
+import { NullableStringSchema, NumberSchema } from "@/shared/utils/schemas";
 import type {
 	WordbookEntry,
 	WordbookUpdatePatch,
 } from "@/shared/wordbook/types";
 
-const NumberSchema: z.ZodType<number> = z.custom<number>(
-	(value): value is number => typeof value === "number",
-);
 const FiniteNumberSchema: z.ZodType<number> = NumberSchema.refine((value) =>
 	Number.isFinite(value),
 );
-const NullableStringSchema = z.string().nullable();
 
 const WordbookEntrySchema: z.ZodType<WordbookEntry> = z
 	.object({
@@ -35,7 +32,7 @@ const WordbookAddInputSchema: z.ZodType<WordbookEntry> = z
 
 const WordbookUpdatePatchSchema: z.ZodType<WordbookUpdatePatch> = z
 	.object({
-		context: z.string().nullable().optional(),
+		context: NullableStringSchema.optional(),
 		original: z.string().optional(),
 	})
 	.transform(

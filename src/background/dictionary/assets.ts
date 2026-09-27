@@ -15,6 +15,10 @@ import {
 	type LemmaIndex,
 } from "@/shared/dictionary/types";
 import { sha256HexOfText } from "@/shared/utils/hash";
+import {
+	ReadonlyStringArraySchema,
+	ReadonlyStringRecordSchema,
+} from "@/shared/utils/schemas";
 
 export interface DictionarySeedManifest {
 	readonly assetFingerprint: string;
@@ -42,15 +46,13 @@ export interface DictionaryAssetLoader {
 
 const DictionaryEntryArraySchema = z.array(DictionaryEntrySchema).readonly();
 
-const LemmaIndexSchema: z.ZodType<LemmaIndex> = z
-	.record(z.string(), z.string())
-	.readonly();
+const LemmaIndexSchema: z.ZodType<LemmaIndex> = ReadonlyStringRecordSchema;
 
 const DictionaryBuildMetadataSchema: z.ZodType<DictionaryBuildMetadata> = z
 	.object({
 		artifactSha256: z
 			.object({
-				dictShards: z.array(z.string()).readonly(),
+				dictShards: ReadonlyStringArraySchema,
 				lemmaIndex: z.string(),
 			})
 			.readonly(),
@@ -58,7 +60,7 @@ const DictionaryBuildMetadataSchema: z.ZodType<DictionaryBuildMetadata> = z
 			.object({
 				lexicalWordPattern: z.string(),
 				requireMeaning: z.boolean(),
-				requireQualitySignal: z.array(z.string()).readonly(),
+				requireQualitySignal: ReadonlyStringArraySchema,
 				retainLowercaseHeadwordsOnly: z.boolean(),
 			})
 			.readonly(),

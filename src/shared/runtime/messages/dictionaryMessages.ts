@@ -5,10 +5,8 @@ import type {
 	DictionaryResolution,
 	LemmaExpansions,
 } from "@/shared/dictionary/types";
+import { ReadonlyStringArraySchema } from "@/shared/utils/schemas";
 
-const ReadonlyStringArraySchema: z.ZodType<readonly string[]> = z
-	.array(z.string())
-	.readonly();
 const LemmaExpansionsSchema: z.ZodType<LemmaExpansions> = z
 	.record(z.string(), ReadonlyStringArraySchema)
 	.readonly();

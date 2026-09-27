@@ -34,7 +34,7 @@ async function loadGeneratedDictionary(): Promise<DictionaryRows> {
 		return { dictEntries: shards.flat(), lemmaEntries: lemmaEntries };
 	} catch (error) {
 		throw new Error(
-			"Cannot load the generated dictionary from public/data. Run `bun run fetch:dict && bun run build:dict` first.",
+			"Cannot load the generated dictionary from public/data. Run `bun run dict` first.",
 			{ cause: error },
 		);
 	}
